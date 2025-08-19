@@ -1,12 +1,9 @@
 # ISSUES
 
-1. onclick should not trigger when dragging/stop dragging
-2. The globe/scene should encompass the entire screen. But no overflow
-
 # TODO
 
 1. Option to show names/flags directly on the country on the globe
-2. Option to change the quiz type instead of doing all types at once
+2. Update Quiz UI. You should first enter Quiz mode with a singular button. THen you can change the quiz type and do the quiz. We should also show the corect qustions out of the total amount. Also when in quiz mode when you hover over a country, it shouldnt show any details
 
 # Globe Country Data Setup
 

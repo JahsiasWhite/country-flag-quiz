@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import RBush from 'rbush';
+import './App.css';
 
 import countryMeta from '../public/countries-map.json';
 
@@ -99,6 +100,7 @@ export default function GlobeWikipediaApp() {
   const [hoverInfo, setHoverInfo] = useState(null);
   const [status, setStatus] = useState('Loading globe…');
   const stateRef = useRef({ features: [] });
+  const [quizType, setQuizType] = useState('flag'); // user-selected quiz type
   const [quizQuestion, setQuizQuestion] = useState(null);
   const [feedback, setFeedback] = useState('');
   const quizRef = useRef(null);
@@ -109,8 +111,10 @@ export default function GlobeWikipediaApp() {
     const country =
       countryNames[Math.floor(Math.random() * countryNames.length)];
 
-    const types = ['flag', 'capital', 'name'];
-    const type = types[Math.floor(Math.random() * types.length)];
+    // const types = ['flag', 'capital', 'name'];
+    // const type = types[Math.floor(Math.random() * types.length)];
+
+    const type = quizType;
 
     const question = {
       country,
@@ -286,11 +290,26 @@ export default function GlobeWikipediaApp() {
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    let isDragging = false;
+    let mouseDownPos = { x: 0, y: 0 };
 
     function onResize() {
       camera.aspect = mount.clientWidth / mount.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(mount.clientWidth, mount.clientHeight);
+    }
+
+    function onMouseDown(ev) {
+      mouseDownPos = { x: ev.clientX, y: ev.clientY };
+      isDragging = false;
+    }
+
+    function onMouseMoveDrag(ev) {
+      if (
+        Math.abs(ev.clientX - mouseDownPos.x) > 2 ||
+        Math.abs(ev.clientY - mouseDownPos.y) > 2
+      )
+        isDragging = true;
     }
 
     function onMouseMove(ev) {
@@ -404,6 +423,7 @@ export default function GlobeWikipediaApp() {
 
     // TODO: Can i combine this with onMouseMove?
     function onClick(ev) {
+      if (isDragging) return;
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
@@ -426,6 +446,8 @@ export default function GlobeWikipediaApp() {
     }
 
     window.addEventListener('resize', onResize);
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMoveDrag);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('click', onClick);
 
@@ -440,6 +462,9 @@ export default function GlobeWikipediaApp() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
+      renderer.domElement.removeEventListener('mousedown', onMouseDown);
+      renderer.domElement.removeEventListener('mousemove', onMouseMoveDrag);
+      // renderer.domElement.addEventListener('click', onClick);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
       renderer.dispose();
       mount.removeChild(renderer.domElement);
@@ -473,7 +498,17 @@ export default function GlobeWikipediaApp() {
         fontFamily: 'sans-serif',
       }}
     >
-      <div ref={mountRef} style={{ width: '1000px', height: '1000px' }} />
+      <div
+        ref={mountRef}
+        style={{
+          width: '100%',
+          height: '100vh',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          overflow: 'hidden',
+        }}
+      />
 
       <div
         style={{
@@ -564,17 +599,44 @@ export default function GlobeWikipediaApp() {
             borderRadius: '8px',
           }}
         >
-          {quizQuestion ? (
-            quizQuestion.type === 'flag' ? (
-              <img src={quizQuestion.flag} alt="flag" style={{ width: 120 }} />
-            ) : quizQuestion.type === 'capital' ? (
-              `Click the country with capital: ${quizQuestion.capital}`
+          {/* Quiz UI */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              left: 10,
+              padding: '6px 10px',
+              background: 'rgba(0,0,0,0.6)',
+              color: 'white',
+              borderRadius: '8px',
+            }}
+          >
+            {quizQuestion ? (
+              quizQuestion.type === 'flag' ? (
+                <img
+                  src={quizQuestion.flag}
+                  alt="flag"
+                  style={{ width: 120 }}
+                />
+              ) : quizQuestion.type === 'capital' ? (
+                `${quizQuestion.capital}`
+              ) : (
+                `${quizQuestion.country}`
+              )
             ) : (
-              `Click the country: ${quizQuestion.country}`
-            )
-          ) : (
-            'Click "Next Question" to start'
-          )}
+              'Click "Next Question" to start'
+            )}
+            <div style={{ marginTop: '6px' }}>
+              <select
+                value={quizType}
+                onChange={(e) => setQuizType(e.target.value)}
+              >
+                <option value="flag">Flag</option>
+                <option value="capital">Capital</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
+          </div>
         </div>
         <button
           onClick={nextQuestion}
