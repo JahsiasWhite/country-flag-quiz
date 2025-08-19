@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import RBush from 'rbush';
 
+import countryMeta from '../public/countries-map.json';
+
 function lonLatToVec3(lon, lat, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
@@ -265,11 +267,18 @@ export default function GlobeWikipediaApp() {
         const point = [lon, lat];
         const feature = hitCountry(point, stateRef.current.tree);
         if (feature) {
-          const screenPos = {
-            x: ev.clientX - rect.left,
-            y: ev.clientY - rect.top,
-          };
-          updateHover(feature, screenPos);
+          // const screenPos = {
+          //   x: ev.clientX - rect.left,
+          //   y: ev.clientY - rect.top,
+          // };
+          // updateHover(feature, screenPos);
+          const meta = countryMeta[feature.name] || {};
+          setHoverInfo({
+            country: meta.name || feature.name,
+            capital: meta.capital || '—',
+            flagUrl: meta.flag || null,
+            pos: { x: ev.clientX - rect.left, y: ev.clientY - rect.top },
+          });
         } else {
           setHoverInfo(null);
         }
@@ -307,17 +316,12 @@ export default function GlobeWikipediaApp() {
       // const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
       //   title
       // )}`;
-      const restUrl = `https://restcountries.com/v3.1/name/${encodeURIComponent(
-        countryName
-      )}?fullText=true&fields=name,capital,flags`;
       const wikiUrl = '';
-      // const restUrl = '';
-      console.error('Fetching data for:', title, wikiUrl, restUrl);
+      console.error('Fetching data for:', title, wikiUrl);
 
       try {
         const [wiki, countries] = await Promise.allSettled([
           cachedJSON(wikiUrl),
-          cachedJSON(restUrl),
         ]);
 
         let summary = '';
