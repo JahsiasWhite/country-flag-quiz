@@ -99,6 +99,47 @@ export default function GlobeWikipediaApp() {
   const [hoverInfo, setHoverInfo] = useState(null);
   const [status, setStatus] = useState('Loading globe…');
   const stateRef = useRef({ features: [] });
+  const [quizQuestion, setQuizQuestion] = useState(null);
+  const [feedback, setFeedback] = useState('');
+  const quizRef = useRef(null);
+
+  // ---------- Generate Quiz Question ----------
+  function nextQuestion() {
+    const countryNames = Object.keys(countryMeta);
+    const country =
+      countryNames[Math.floor(Math.random() * countryNames.length)];
+
+    const types = ['flag', 'capital', 'name'];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    const question = {
+      country,
+      type,
+      flag: countryMeta[country].flag,
+      capital: countryMeta[country].capital,
+    };
+
+    setQuizQuestion(question);
+    quizRef.current = question; // update ref
+    setFeedback('');
+  }
+
+  // ---------- Check Quiz Answer ----------
+  function handleGlobeClick(clickedCountry) {
+    console.log('Clicked country:', clickedCountry);
+    if (!quizRef.current) return;
+    const correctCountry = quizRef.current.country;
+
+    if (clickedCountry === correctCountry) {
+      setFeedback('✅ Correct!');
+    } else {
+      if (quizRef.current.type === 'name') {
+        setFeedback(`❌ Wrong!`);
+      } else {
+        setFeedback(`❌ Wrong! Correct country: ${correctCountry}`);
+      }
+    }
+  }
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -361,8 +402,32 @@ export default function GlobeWikipediaApp() {
       }
     }
 
+    // TODO: Can i combine this with onMouseMove?
+    function onClick(ev) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(globe, false);
+      if (intersects.length) {
+        const p = intersects[0].point.clone().normalize();
+        const lat = 90 - (Math.acos(p.y) * 180) / Math.PI;
+        let lon = (Math.atan2(p.z, -p.x) * 180) / Math.PI - 180;
+        if (lon < -180) lon += 360;
+        if (lon > 180) lon -= 360;
+        const point = [lon, lat];
+
+        const feature = hitCountry(point, stateRef.current.tree);
+        if (feature) {
+          handleGlobeClick(feature.name);
+        }
+      }
+    }
+
     window.addEventListener('resize', onResize);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('click', onClick);
 
     let raf;
     const animate = () => {
@@ -486,6 +551,58 @@ export default function GlobeWikipediaApp() {
           </div> */}
         </div>
       )}
+
+      <>
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            padding: '6px 10px',
+            background: 'rgba(0,0,0,0.6)',
+            color: 'white',
+            borderRadius: '8px',
+          }}
+        >
+          {quizQuestion ? (
+            quizQuestion.type === 'flag' ? (
+              <img src={quizQuestion.flag} alt="flag" style={{ width: 120 }} />
+            ) : quizQuestion.type === 'capital' ? (
+              `Click the country with capital: ${quizQuestion.capital}`
+            ) : (
+              `Click the country: ${quizQuestion.country}`
+            )
+          ) : (
+            'Click "Next Question" to start'
+          )}
+        </div>
+        <button
+          onClick={nextQuestion}
+          style={{
+            position: 'absolute',
+            top: 150,
+            left: 10,
+            padding: '6px 10px',
+            borderRadius: '8px',
+          }}
+        >
+          Next Question
+        </button>
+
+        {feedback && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 200,
+              left: 10,
+              fontWeight: '600',
+              color: feedback.includes('✅') ? 'lightgreen' : 'red',
+            }}
+          >
+            {feedback}
+          </div>
+        )}
+      </>
     </div>
   );
 }

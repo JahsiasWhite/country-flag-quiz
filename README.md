@@ -1,3 +1,13 @@
+# ISSUES
+
+1. onclick should not trigger when dragging/stop dragging
+2. The globe/scene should encompass the entire screen. But no overflow
+
+# TODO
+
+1. Option to show names/flags directly on the country on the globe
+2. Option to change the quiz type instead of doing all types at once
+
 # Globe Country Data Setup
 
 This project fetches country metadata and flags from the REST Countries API, prepares JSON files, and downloads all SVG flags locally for use in interactive globe applications.
