@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import RBush from 'rbush';
 
 function lonLatToVec3(lon, lat, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -41,6 +42,30 @@ function pointInMultiPolygon(point, multi) {
     if (pointInPolygon(point, poly)) return true;
   }
   return false;
+}
+
+// Compute bounding box for polygons
+function computeBBox(coords) {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
+  const processRing = (ring) => {
+    for (const [x, y] of ring) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  };
+
+  for (const poly of coords) {
+    for (const ring of poly) {
+      processRing(ring);
+    }
+  }
+  return [minX, minY, maxX, maxY];
 }
 
 const WIKI_TITLE_OVERRIDES = {
@@ -185,10 +210,31 @@ export default function GlobeWikipediaApp() {
         }
       }
 
-      stateRef.current.features = features.map((f) => ({
-        name: f.properties.name || 'Unknown',
-        geometry: f.geometry,
-      }));
+      // Build R-tree for hover detection
+      const tree = new RBush();
+      const items = features.map((f) => {
+        const props = f.properties || {};
+        const name = props.ADMIN || props.NAME || props.name || 'Unknown';
+        const geom = f.geometry;
+        let bbox = null;
+        if (geom) {
+          if (geom.type === 'Polygon') bbox = computeBBox([geom.coordinates]);
+          else if (geom.type === 'MultiPolygon')
+            bbox = computeBBox(geom.coordinates);
+        }
+        const item = {
+          minX: bbox ? bbox[0] : 0,
+          minY: bbox ? bbox[1] : 0,
+          maxX: bbox ? bbox[2] : 0,
+          maxY: bbox ? bbox[3] : 0,
+          feature: { name, geometry: geom },
+        };
+        tree.insert(item);
+        return item;
+      });
+
+      stateRef.current.features = items;
+      stateRef.current.tree = tree;
 
       setStatus('Ready');
     };
@@ -217,7 +263,7 @@ export default function GlobeWikipediaApp() {
         if (lon < -180) lon += 360;
         if (lon > 180) lon -= 360;
         const point = [lon, lat];
-        const feature = hitCountry(point, stateRef.current.features);
+        const feature = hitCountry(point, stateRef.current.tree);
         if (feature) {
           const screenPos = {
             x: ev.clientX - rect.left,
@@ -232,16 +278,25 @@ export default function GlobeWikipediaApp() {
       }
     }
 
-    // TODO: Use RBush for better performance
-    function hitCountry(point, features) {
-      for (const f of features) {
-        const geom = f.geometry;
+    function hitCountry(point, tree) {
+      const [lon, lat] = point;
+      const candidates = tree.search({
+        minX: lon,
+        minY: lat,
+        maxX: lon,
+        maxY: lat,
+      });
+
+      for (const item of candidates) {
+        const geom = item.feature.geometry;
         if (!geom) continue;
-        if (geom.type === 'Polygon') {
-          if (pointInPolygon(point, geom.coordinates)) return f;
-        } else if (geom.type === 'MultiPolygon') {
-          if (pointInMultiPolygon(point, geom.coordinates)) return f;
-        }
+        if (geom.type === 'Polygon' && pointInPolygon(point, geom.coordinates))
+          return item.feature;
+        if (
+          geom.type === 'MultiPolygon' &&
+          pointInMultiPolygon(point, geom.coordinates)
+        )
+          return item.feature;
       }
       return null;
     }
