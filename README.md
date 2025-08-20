@@ -1,16 +1,11 @@
 # ISSUES
 
-1. Fix the hoverInfo. If you move the mouse too quick, it ends up on top of it
 2. After you end quiz, the border colors should reset
 
 # TODO
 
 1. Option to show names/flags directly on the country on the globe
-2. Fix quiz mode timer
-3. In quiz mode, when getting a wrong answer, maybe it should move the globe or highlight the correct country or direction?
-4. In quiz mode, button that says "Show location" and it moves and centers above the country.
-5. Load 21k textures only if requested. load 8k by default
-6. Show summary after clicking "End Quiz"
+2. In quiz mode, button that says "Show location" and it moves and centers above the country.
 
 # Globe Country Data Setup
 
