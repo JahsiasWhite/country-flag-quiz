@@ -23,7 +23,7 @@
     "capital": "Washington, D.C.",
     "flag": "/flags/us.svg"
   },
-  "South Georgia": {
+  "South Georgia and the Islands": {
     "capital": "King Edward Point",
     "flag": "/flags/gs.svg"
   },
@@ -251,7 +251,7 @@
     "capital": "South Tarawa",
     "flag": "/flags/ki.svg"
   },
-  "Tanzania": {
+  "United Republic of Tanzania": {
     "capital": "Dodoma",
     "flag": "/flags/tz.svg"
   },
@@ -283,7 +283,7 @@
     "capital": "Wellington",
     "flag": "/flags/nz.svg"
   },
-  "Eswatini": {
+  "eSwatini": {
     "capital": "Mbabane",
     "flag": "/flags/sz.svg"
   },
@@ -659,7 +659,7 @@
     "capital": "Monrovia",
     "flag": "/flags/lr.svg"
   },
-  "Hong Kong": {
+  "Hong Kong S.A.R.": {
     "capital": "City of Victoria",
     "flag": "/flags/hk.svg"
   },
@@ -843,7 +843,7 @@
     "capital": "Mariehamn",
     "flag": "/flags/ax.svg"
   },
-  "Bahamas": {
+  "The Bahamas": {
     "capital": "Nassau",
     "flag": "/flags/bs.svg"
   },
