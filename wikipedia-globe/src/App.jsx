@@ -105,6 +105,18 @@ export default function GlobeWikipediaApp() {
   const [feedback, setFeedback] = useState('');
   const quizRef = useRef(null);
 
+  const [quizMode, setQuizMode] = useState(false);
+  const quizModeRef = useRef(false);
+  useEffect(() => {
+    quizModeRef.current = quizMode;
+  }, [quizMode]); // TODO: Unnecessary
+  const [correctCount, setCorrectCount] = useState(0); // first-try correct per question
+  const [totalCount, setTotalCount] = useState(0); // total attempts
+  const accuracy =
+    totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100);
+  const [startTime, setStartTime] = useState(null);
+  const [elapsed, setElapsed] = useState(0); // seconds
+
   // ---------- Generate Quiz Question ----------
   function nextQuestion() {
     const countryNames = Object.keys(countryMeta);
@@ -134,15 +146,57 @@ export default function GlobeWikipediaApp() {
     if (!quizRef.current) return;
     const correctCountry = quizRef.current.country;
 
+    setTotalCount((t) => t + 1);
     if (clickedCountry === correctCountry) {
-      setFeedback('✅ Correct!');
+      setCorrectCount((c) => c + 1);
+      const wasFirstTry = quizRef.current.firstTryFlag;
+      if (wasFirstTry) {
+        // setFeedback('✅ Correct!');
+        highlightCountry(correctCountry, 0x00ff00);
+      } else {
+        // setFeedback(`✅ Correct (not first try).`);
+        highlightCountry(correctCountry, 0xffff00);
+      }
+      nextQuestion();
     } else {
+      quizRef.current.firstTryFlag = false;
       if (quizRef.current.type === 'name') {
         setFeedback(`❌ Wrong!`);
       } else {
         setFeedback(`❌ Wrong! Correct country: ${correctCountry}`);
       }
     }
+  }
+  function startQuiz() {
+    setCorrectCount(0);
+    setTotalCount(0);
+    setElapsed(0);
+    setQuizMode(true);
+    nextQuestion();
+  }
+  function endQuiz() {
+    setQuizMode(false);
+    setQuizQuestion(null);
+    setFeedback('');
+    // clearAllCountryColors();
+  }
+  function clearAllCountryColors() {
+    const mats = stateRef.current.materialByCountry;
+    mats.forEach((mat) => {
+      mat.color.setHex(0xffffff);
+      mat.opacity = 0.65;
+      mat.transparent = true;
+      mat.needsUpdate = true;
+    });
+  }
+  function highlightCountry(name, color = 0x00ff00) {
+    const lines = stateRef.current.countryLines[name];
+    if (!lines) return;
+
+    lines.forEach((line) => {
+      line.material = line.material.clone(); // clone to avoid affecting others
+      line.material.color.setHex(color);
+    });
   }
 
   useEffect(() => {
@@ -233,10 +287,17 @@ export default function GlobeWikipediaApp() {
         opacity: 0.65,
         color: 0xffffff,
       });
+
+      // This lets us map country names to materials
+      // so we can highlight them later
+      const countryLines = {}; // store country name -> array of line objects
+
       for (const f of features) {
         const geom = f.geometry;
         const coords = geom.coordinates;
         const type = geom.type;
+        const lines = [];
+
         const addRing = (ring) => {
           const pts = [];
           for (const [lon, lat] of ring) {
@@ -247,7 +308,9 @@ export default function GlobeWikipediaApp() {
           g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
           const line = new THREE.LineLoop(g, lineMat);
           bordersGroup.add(line);
+          lines.push(line);
         };
+
         if (type === 'Polygon') {
           for (const ring of coords) addRing(ring);
         } else if (type === 'MultiPolygon') {
@@ -255,7 +318,11 @@ export default function GlobeWikipediaApp() {
             for (const ring of poly) addRing(ring);
           }
         }
+
+        const name = f.properties.name || 'Unknown';
+        countryLines[name] = lines;
       }
+      stateRef.current.countryLines = countryLines;
 
       // Build R-tree for hover detection
       const tree = new RBush();
@@ -588,7 +655,7 @@ export default function GlobeWikipediaApp() {
       )}
 
       <>
-        <div
+        {/* <div
           style={{
             position: 'absolute',
             top: 10,
@@ -598,47 +665,153 @@ export default function GlobeWikipediaApp() {
             color: 'white',
             borderRadius: '8px',
           }}
+        > */}
+        {/* Quiz UI */}
+        {/* Quiz Controls */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            padding: '10px',
+            background: 'rgba(0,0,0,0.6)',
+            color: 'white',
+            borderRadius: '12px',
+            minWidth: 240,
+          }}
         >
-          {/* Quiz UI */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 10,
-              left: 10,
-              padding: '6px 10px',
-              background: 'rgba(0,0,0,0.6)',
-              color: 'white',
-              borderRadius: '8px',
-            }}
-          >
-            {quizQuestion ? (
-              quizQuestion.type === 'flag' ? (
-                <img
-                  src={quizQuestion.flag}
-                  alt="flag"
-                  style={{ width: 120 }}
-                />
-              ) : quizQuestion.type === 'capital' ? (
-                `${quizQuestion.capital}`
-              ) : (
-                `${quizQuestion.country}`
-              )
-            ) : (
-              'Click "Next Question" to start'
-            )}
-            <div style={{ marginTop: '6px' }}>
-              <select
-                value={quizType}
-                onChange={(e) => setQuizType(e.target.value)}
+          {!quizMode ? (
+            <>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Quiz</div>
+              <div style={{ marginBottom: 8 }}>
+                <label style={{ fontSize: 12, opacity: 0.9, marginRight: 6 }}>
+                  Type:
+                </label>
+                <select
+                  value={quizType}
+                  onChange={(e) => setQuizType(e.target.value)}
+                >
+                  <option value="flag">Flag</option>
+                  <option value="capital">Capital</option>
+                  <option value="name">Name</option>
+                </select>
+              </div>
+              <button
+                onClick={startQuiz}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
               >
-                <option value="flag">Flag</option>
-                <option value="capital">Capital</option>
-                <option value="name">Name</option>
-              </select>
-            </div>
-          </div>
+                Start Quiz
+              </button>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>Quiz Running</div>
+                <div style={{ fontSize: 12, opacity: 0.9 }}>{elapsed}</div>
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <label style={{ fontSize: 12, opacity: 0.9, marginRight: 6 }}>
+                  Type:
+                </label>
+                <select
+                  value={quizType}
+                  onChange={(e) => setQuizType(e.target.value)}
+                >
+                  <option value="flag">Flag</option>
+                  <option value="capital">Capital</option>
+                  <option value="name">Name</option>
+                </select>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  background: 'rgba(255,255,255,0.08)',
+                  padding: 8,
+                  borderRadius: 8,
+                }}
+              >
+                {quizQuestion ? (
+                  quizQuestion.type === 'flag' ? (
+                    <img
+                      src={quizQuestion.flag}
+                      alt="flag"
+                      style={{ width: 120 }}
+                    />
+                  ) : quizQuestion.type === 'capital' ? (
+                    <div style={{ fontSize: 18, fontWeight: 600 }}>
+                      {quizQuestion.capital}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 18, fontWeight: 600 }}>
+                      {quizQuestion.country}
+                    </div>
+                  )
+                ) : (
+                  'Click Next Question'
+                )}
+              </div>
+
+              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <button
+                  onClick={nextQuestion}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Next Question
+                </button>
+                <button
+                  onClick={endQuiz}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  End Quiz
+                </button>
+              </div>
+
+              {feedback && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontWeight: 700,
+                    color: feedback.includes('✅') ? 'lightgreen' : '#fca5a5',
+                  }}
+                >
+                  {feedback}
+                </div>
+              )}
+
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.95 }}>
+                <div>
+                  Score: <b>{correctCount}</b> / <b>{totalCount}</b>
+                </div>
+                <div>
+                  Accuracy: <b>{accuracy}%</b>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        <button
+        {/* </div> */}
+        {/* <button
           onClick={nextQuestion}
           style={{
             position: 'absolute',
@@ -663,7 +836,7 @@ export default function GlobeWikipediaApp() {
           >
             {feedback}
           </div>
-        )}
+        )} */}
       </>
     </div>
   );
