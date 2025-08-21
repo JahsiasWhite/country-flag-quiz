@@ -1,11 +1,10 @@
 # ISSUES
 
-2. After you end quiz, the border colors should reset
-
 # TODO
 
 1. Option to show names/flags directly on the country on the globe
-2. In quiz mode, button that says "Show location" and it moves and centers above the country.
+2. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
+3. Option to choose the quiz length. Maybe default at 10 questions
 
 # Globe Country Data Setup
 

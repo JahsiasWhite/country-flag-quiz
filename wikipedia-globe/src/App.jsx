@@ -4,8 +4,13 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import RBush from 'rbush';
 import './App.css';
 
-import countryMeta from '../public/countries-map.json';
+import countryMeta from './countries-map.json';
 import QuizMenu from './QuizMenu.jsx';
+import {
+  BORDER_LINE_COLOR,
+  FULL_BRIGHTNESS,
+  WIKI_TITLE_OVERRIDES,
+} from './constants.js';
 
 function lonLatToVec3(lon, lat, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -72,18 +77,6 @@ function computeBBox(coords) {
   return [minX, minY, maxX, maxY];
 }
 
-const WIKI_TITLE_OVERRIDES = {
-  'United States of America': 'United States',
-  'Republic of the Congo': 'Republic of the Congo',
-  'Democratic Republic of the Congo': 'Democratic Republic of the Congo',
-  'Ivory Coast': "Côte d'Ivoire",
-  Czechia: 'Czech Republic',
-  Eswatini: 'Eswatini',
-  'North Macedonia': 'North Macedonia',
-  Burma: 'Myanmar',
-  'Timor-Leste': 'East Timor',
-};
-
 const fetchCache = new Map();
 async function cachedJSON(url) {
   if (fetchCache.has(url)) return fetchCache.get(url);
@@ -100,18 +93,9 @@ export default function GlobeWikipediaApp() {
   const tooltipRef = useRef(null);
   const [hoverInfo, setHoverInfo] = useState(null);
   const [status, setStatus] = useState('Loading globe…');
-  const [showCountryLabels, setShowCountryLabels] = useState(false);
   const [highResTextures, setHighResTextures] = useState(false);
   const stateRef = useRef({ features: [] });
   const quizRef = useRef(null);
-
-  // Effect to update country labels when showCountryLabels changes
-  useEffect(() => {
-    stateRef.current.showCountryLabels = showCountryLabels;
-    if (stateRef.current.createCountryLabels) {
-      stateRef.current.createCountryLabels();
-    }
-  }, [showCountryLabels]);
 
   // Effect to update textures when highResTextures changes
   useEffect(() => {
@@ -155,33 +139,39 @@ export default function GlobeWikipediaApp() {
     const moveCameraToCountry = (lat, lon) => {
       const targetPosition = lonLatToVec3(lon, lat, 4.5);
       const currentPosition = camera.position.clone();
-      
+
       // Animate camera movement
       const duration = 2000; // 2 seconds
       const startTime = Date.now();
-      
+
       const animateCamera = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
+
         // Easing function for smooth movement
         const easeProgress = 1 - Math.pow(1 - progress, 3);
-        
-        camera.position.lerpVectors(currentPosition, targetPosition, easeProgress);
-        controls.target.lerp(new THREE.Vector3(0, 0, 0), easeProgress);
-        
+
+        camera.position.lerpVectors(
+          currentPosition,
+          targetPosition,
+          easeProgress
+        );
+
+        // Keep the target at the center of the globe
+        controls.target.set(0, 0, 0);
+
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
         }
       };
-      
+
       animateCamera();
     };
-    
+
     stateRef.current.moveCameraToCountry = moveCameraToCountry;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+    scene.add(new THREE.AmbientLight(FULL_BRIGHTNESS, 0.6));
+    const dir = new THREE.DirectionalLight(FULL_BRIGHTNESS, 1.0);
     dir.position.set(-5, 3, 1);
     scene.add(dir);
 
@@ -191,14 +181,18 @@ export default function GlobeWikipediaApp() {
 
     const sphereGeo = new THREE.SphereGeometry(R, 96, 96);
     const texLoader = new THREE.TextureLoader();
-    const earthTexUrl = highResTextures ? '/21k_earth_daymap.png' : '/8k_earth_daymap.jpg';
+    const earthTexUrl = highResTextures
+      ? '/21k_earth_daymap.png'
+      : '/8k_earth_daymap.jpg';
     const bumpUrl = '/8k_earth_normal_map.jpg';
     const specUrl = '/8k_earth_specular_map.jpg';
 
     const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
-    
+
     const loadTextures = () => {
-      const currentEarthTexUrl = stateRef.current.highResTextures ? '/21k_earth_daymap.png' : '/8k_earth_daymap.jpg';
+      const currentEarthTexUrl = stateRef.current.highResTextures
+        ? '/21k_earth_daymap.png'
+        : '/8k_earth_daymap.jpg';
       Promise.all([
         new Promise((res) => texLoader.load(currentEarthTexUrl, res)),
         // new Promise((res) => texLoader.load(bumpUrl, res)),
@@ -213,7 +207,7 @@ export default function GlobeWikipediaApp() {
         material.needsUpdate = true;
       });
     };
-    
+
     // Initial texture load
     loadTextures();
     stateRef.current.reloadTextures = loadTextures;
@@ -244,7 +238,7 @@ export default function GlobeWikipediaApp() {
         linewidth: 1,
         transparent: false,
         opacity: 0.65,
-        color: 0xffffff,
+        color: BORDER_LINE_COLOR,
       });
 
       // This lets us map country names to materials
@@ -314,80 +308,6 @@ export default function GlobeWikipediaApp() {
       group.add(labelsGroup);
       stateRef.current.labelsGroup = labelsGroup;
 
-      // Function to create country labels
-      const createCountryLabels = () => {
-        // Clear existing labels
-        labelsGroup.clear();
-        
-        if (!stateRef.current.showCountryLabels) return;
-
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = 256;
-        canvas.height = 64;
-
-        features.forEach((f) => {
-          const props = f.properties || {};
-          const name = props.ADMIN || props.NAME || props.name || 'Unknown';
-          const geom = f.geometry;
-          
-          if (!geom) return;
-          
-          // Calculate center of country for label placement
-          let centerLon = 0, centerLat = 0, pointCount = 0;
-          
-          if (geom.type === 'Polygon') {
-            const coords = geom.coordinates[0]; // Use outer ring
-            coords.forEach(([lon, lat]) => {
-              centerLon += lon;
-              centerLat += lat;
-              pointCount++;
-            });
-          } else if (geom.type === 'MultiPolygon') {
-            geom.coordinates.forEach(poly => {
-              poly[0].forEach(([lon, lat]) => {
-                centerLon += lon;
-                centerLat += lat;
-                pointCount++;
-              });
-            });
-          }
-          
-          if (pointCount === 0) return;
-          
-          centerLon /= pointCount;
-          centerLat /= pointCount;
-          
-          // Create label texture
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          context.fillStyle = 'rgba(0, 0, 0, 0.8)';
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          context.fillStyle = 'white';
-          context.font = 'bold 16px Arial';
-          context.textAlign = 'center';
-          context.textBaseline = 'middle';
-          
-          // Truncate long names
-          const displayName = name.length > 15 ? name.substring(0, 12) + '...' : name;
-          context.fillText(displayName, canvas.width / 2, canvas.height / 2);
-          
-          const texture = new THREE.CanvasTexture(canvas);
-          const material = new THREE.SpriteMaterial({ map: texture });
-          const sprite = new THREE.Sprite(material);
-          
-          // Position label on globe
-          const pos = lonLatToVec3(centerLon, centerLat, R * 1.01);
-          sprite.position.copy(pos);
-          sprite.scale.set(0.5, 0.125, 1);
-          
-          labelsGroup.add(sprite);
-        });
-      };
-
-      // Initial label creation
-      createCountryLabels();
-      stateRef.current.createCountryLabels = createCountryLabels;
-
       setStatus('Ready');
     };
 
@@ -436,25 +356,25 @@ export default function GlobeWikipediaApp() {
           const tooltipWidth = 260;
           const tooltipHeight = 80;
           const padding = 20;
-          
+
           // Calculate position with boundary detection
           let x = ev.clientX - rect.left + padding;
           let y = ev.clientY - rect.top;
-          
+
           // Check right boundary
           if (x + tooltipWidth > rect.width) {
             x = ev.clientX - rect.left - tooltipWidth - padding;
           }
-          
+
           // Check bottom boundary
           if (y + tooltipHeight > rect.height) {
             y = ev.clientY - rect.top - tooltipHeight - padding;
           }
-          
+
           // Ensure tooltip doesn't go off the left or top
           x = Math.max(padding, x);
           y = Math.max(padding, y);
-          
+
           setHoverInfo({
             country: meta.name || feature.name,
             capital: meta.capital || '—',
@@ -676,7 +596,7 @@ export default function GlobeWikipediaApp() {
 
       {/* Quiz UI */}
       <QuizMenu countryMeta={countryMeta} stateRef={stateRef} ref={quizRef} />
-      
+
       {/* Globe Controls */}
       <div
         style={{
@@ -691,15 +611,14 @@ export default function GlobeWikipediaApp() {
         }}
       >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>Globe Options</div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 14, marginBottom: '8px' }}>
-          <input
-            type="checkbox"
-            checked={showCountryLabels}
-            onChange={(e) => setShowCountryLabels(e.target.checked)}
-          />
-          Show Country Names
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 14 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: 14,
+          }}
+        >
           <input
             type="checkbox"
             checked={highResTextures}

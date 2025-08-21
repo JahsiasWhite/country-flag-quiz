@@ -5,6 +5,12 @@ import React, {
   useState,
   useImperativeHandle,
 } from 'react';
+import {
+  BORDER_LINE_COLOR,
+  BORDER_LINE_COLOR_CORRECT,
+  BORDER_LINE_COLOR_PARTIAL,
+  BORDER_LINE_COLOR_WRONG,
+} from './constants';
 
 const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   const [quizType, setQuizType] = useState('flag'); // user-selected quiz type
@@ -68,18 +74,18 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       const wasFirstTry = quizRef.current.firstTryFlag;
       if (wasFirstTry) {
         // setFeedback('✅ Correct!');
-        highlightCountry(correctCountry, 0x00ff00);
+        highlightCountry(correctCountry, BORDER_LINE_COLOR_CORRECT);
       } else {
         // setFeedback(`✅ Correct (not first try).`);
-        highlightCountry(correctCountry, 0xffff00);
+        highlightCountry(correctCountry, BORDER_LINE_COLOR_PARTIAL);
       }
       nextQuestion();
     } else {
       quizRef.current.firstTryFlag = false;
-      
+
       // Highlight the correct country in red
-      highlightCountry(correctCountry, 0xff0000);
-      
+      highlightCountry(correctCountry, BORDER_LINE_COLOR_WRONG);
+
       if (quizRef.current.type === 'name') {
         setFeedback(`❌ Wrong!`);
       } else {
@@ -88,16 +94,19 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     }
   }
 
+  // TODO: Probably a lot better way to do this than looping through all countries
   function clearAllCountryColors() {
-    const mats = stateRef.current.materialByCountry;
-    mats.forEach((mat) => {
-      mat.color.setHex(0xffffff);
-      mat.opacity = 0.65;
-      mat.transparent = true;
-      mat.needsUpdate = true;
-    });
+    for (const name in stateRef.current.countryLines) {
+      const lines = stateRef.current.countryLines[name];
+      if (!lines) continue;
+
+      lines.forEach((line) => {
+        // line.material = line.material.clone(); // clone to avoid affecting others
+        line.material.color.setHex(BORDER_LINE_COLOR);
+      });
+    }
   }
-  function highlightCountry(name, color = 0x00ff00) {
+  function highlightCountry(name, color = BORDER_LINE_COLOR_CORRECT) {
     const lines = stateRef.current.countryLines[name];
     if (!lines) return;
 
@@ -111,7 +120,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   useEffect(() => {
     if (quizMode) {
       timerRef.current = setInterval(() => {
-        setElapsed(prev => prev + 1);
+        setElapsed((prev) => prev + 1);
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -138,7 +147,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setQuizMode(false);
     setQuizQuestion(null);
     setFeedback('');
-    // clearAllCountryColors();
+    clearAllCountryColors();
     setShowSummary(true);
   }
 
@@ -146,12 +155,47 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     console.log('Showing location');
     if (!quizRef.current) return;
     const countryName = quizRef.current.country;
-    const countryData = countryMeta[countryName];
-    
-    if (countryData && countryData.latlng) {
+
+    // Find the country in the features data to get its coordinates
+    const features = stateRef.current.features;
+    if (!features) return;
+
+    const countryFeature = features.find(
+      (item) => item.feature.name === countryName
+    );
+    if (!countryFeature || !countryFeature.feature.geometry) return;
+
+    const geom = countryFeature.feature.geometry;
+
+    // Calculate center of country for camera positioning
+    let centerLon = 0,
+      centerLat = 0,
+      pointCount = 0;
+
+    if (geom.type === 'Polygon') {
+      const coords = geom.coordinates[0]; // Use outer ring
+      coords.forEach(([lon, lat]) => {
+        centerLon += lon;
+        centerLat += lat;
+        pointCount++;
+      });
+    } else if (geom.type === 'MultiPolygon') {
+      geom.coordinates.forEach((poly) => {
+        poly[0].forEach(([lon, lat]) => {
+          centerLon += lon;
+          centerLat += lat;
+          pointCount++;
+        });
+      });
+    }
+
+    if (pointCount > 0) {
+      centerLon /= pointCount;
+      centerLat /= pointCount;
+
       // Call parent function to move camera
       if (stateRef.current.moveCameraToCountry) {
-        stateRef.current.moveCameraToCountry(countryData.latlng[1], countryData.latlng[0]);
+        stateRef.current.moveCameraToCountry(centerLat, centerLon);
       }
     }
   }
@@ -215,7 +259,8 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             >
               <div style={{ fontWeight: 700 }}>Quiz Running</div>
               <div style={{ fontSize: 12, opacity: 0.9 }}>
-                {Math.floor(elapsed / 60)}:{(elapsed % 60).toString().padStart(2, '0')}
+                {Math.floor(elapsed / 60)}:
+                {(elapsed % 60).toString().padStart(2, '0')}
               </div>
             </div>
 
@@ -262,7 +307,14 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
               )}
             </div>
 
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: 'flex',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
               <button
                 onClick={nextQuestion}
                 style={{
@@ -348,10 +400,19 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
             }}
           >
-            <h2 style={{ margin: '0 0 20px 0', color: '#1e293b' }}>Quiz Complete!</h2>
-            
+            <h2 style={{ margin: '0 0 20px 0', color: '#1e293b' }}>
+              Quiz Complete!
+            </h2>
+
             <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '8px' }}>
+              <div
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#3b82f6',
+                  marginBottom: '8px',
+                }}
+              >
                 {correctCount} / {totalCount}
               </div>
               <div style={{ fontSize: '16px', color: '#64748b' }}>
@@ -360,12 +421,21 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
-                Time: {Math.floor(elapsed / 60)}:{(elapsed % 60).toString().padStart(2, '0')}
+              <div
+                style={{
+                  fontSize: '14px',
+                  color: '#64748b',
+                  marginBottom: '8px',
+                }}
+              >
+                Time: {Math.floor(elapsed / 60)}:
+                {(elapsed % 60).toString().padStart(2, '0')}
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <div
+              style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}
+            >
               <button
                 onClick={() => {
                   setShowSummary(false);
