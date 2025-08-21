@@ -311,7 +311,7 @@ export default function GlobeWikipediaApp() {
       setStatus('Ready');
     };
 
-    fetchBorders().catch((e) => setStatus(`Error: ${e.message}`));
+    fetchBorders().catch((e) => console.error(`Error: ${e.message}`));
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();

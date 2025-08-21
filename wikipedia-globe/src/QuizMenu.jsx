@@ -11,147 +11,270 @@ import {
   BORDER_LINE_COLOR_PARTIAL,
   BORDER_LINE_COLOR_WRONG,
 } from './constants';
+import './QuizMenu.css';
 
 const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
-  const [quizType, setQuizType] = useState('flag'); // user-selected quiz type
-  const [quizQuestion, setQuizQuestion] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  // Quiz Configuration
+  const [quizType, setQuizType] = useState('flag');
+  const [quizLength, setQuizLength] = useState(10);
+  const [difficulty, setDifficulty] = useState('medium');
+  const [timeLimit, setTimeLimit] = useState(30); // seconds per question
 
-  const [startTime, setStartTime] = useState(null);
-  const [elapsed, setElapsed] = useState(0); // seconds
-  const timerRef = useRef(null);
-
-  const quizRef = useRef(null);
+  // Quiz State
   const [quizMode, setQuizMode] = useState(false);
-  const quizModeRef = useRef(false);
-  useEffect(() => {
-    quizModeRef.current = quizMode;
-  }, [quizMode]); // TODO: Unnecessary
-
-  const [correctCount, setCorrectCount] = useState(0); // first-try correct per question
-  const [totalCount, setTotalCount] = useState(0); // total attempts
+  const [quizQuestion, setQuizQuestion] = useState(null);
+  const [questionNumber, setQuestionNumber] = useState(1); // Start at 1
   const [showSummary, setShowSummary] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  // Scoring & Progress
+  const [score, setScore] = useState(0);
+  const [totalAttempts, setTotalAttempts] = useState(0);
+  const [correctFirstTry, setCorrectFirstTry] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [questionHistory, setQuestionHistory] = useState([]);
+
+  // Timer & Feedback
+  const [timeRemaining, setTimeRemaining] = useState(timeLimit);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackType, setFeedbackType] = useState(''); // 'correct', 'incorrect', 'timeout'
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  // Refs
+  const timerRef = useRef(null);
+  const quizRef = useRef(null);
+  const questionStartTimeRef = useRef(null);
+
+  // Calculate metrics
   const accuracy =
-    totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100);
+    totalAttempts === 0
+      ? 0
+      : Math.round((correctFirstTry / totalAttempts) * 100);
+  const averageTime =
+    questionHistory.length === 0
+      ? 0
+      : Math.round(
+          questionHistory.reduce((sum, q) => sum + q.timeSpent, 0) /
+            questionHistory.length
+        );
 
-  // ---------- Generate Quiz Question ----------
-  function nextQuestion() {
+  // Question types with descriptions
+  const questionTypes = [
+    {
+      value: 'flag',
+      label: 'Flag Recognition',
+      description: 'Identify countries by their flags',
+    },
+    {
+      value: 'capital',
+      label: 'Capital Cities',
+      description: 'Find countries by their capital cities',
+    },
+    {
+      value: 'name',
+      label: 'Country Names',
+      description: 'Locate countries by name',
+    },
+    {
+      value: 'mixed',
+      label: 'Mixed Challenge',
+      description: 'Random mix of all question types',
+    },
+  ];
+
+  // Generate question based on type
+  function generateQuestion() {
     const countryNames = Object.keys(countryMeta);
+    let availableCountries = [...countryNames];
+
     const country =
-      countryNames[Math.floor(Math.random() * countryNames.length)];
-
-    // const types = ['flag', 'capital', 'name'];
-    // const type = types[Math.floor(Math.random() * types.length)];
-
-    // if (feedback.includes('')) {
-    setTotalCount((t) => t + 1);
-    // }
-
-    const type = quizType;
+      availableCountries[Math.floor(Math.random() * availableCountries.length)];
+    const type =
+      quizType === 'mixed'
+        ? ['flag', 'capital', 'name'][Math.floor(Math.random() * 3)]
+        : quizType;
 
     const question = {
+      id: Date.now(),
       country,
       type,
       flag: countryMeta[country].flag,
       capital: countryMeta[country].capital,
-      firstTryFlag: true,
+      firstTry: true,
+      timeSpent: 0,
+      attempts: 0,
+      startTime: Date.now(),
     };
 
+    return question;
+  }
+
+  // Start new question
+  function startNewQuestion() {
+    if (questionNumber > quizLength) {
+      endQuiz();
+      return;
+    }
+
+    const question = generateQuestion();
     setQuizQuestion(question);
-    quizRef.current = question; // update ref
-    setFeedback('');
-  }
+    quizRef.current = question;
+    setTimeRemaining(timeLimit);
+    // setFeedback('');
+    // setFeedbackType('');
+    // setShowFeedback(false);
+    questionStartTimeRef.current = Date.now();
 
-  // ---------- Check Quiz Answer ----------
-  function handleGlobeClick(clickedCountry) {
-    console.log('Clicked country:', clickedCountry);
-    if (!quizRef.current) return;
-    const correctCountry = quizRef.current.country;
-
-    // setTotalCount((t) => t + 1);
-    if (clickedCountry === correctCountry) {
-      setCorrectCount((c) => c + 1);
-      const wasFirstTry = quizRef.current.firstTryFlag;
-      if (wasFirstTry) {
-        // setFeedback('✅ Correct!');
-        highlightCountry(correctCountry, BORDER_LINE_COLOR_CORRECT);
-      } else {
-        // setFeedback(`✅ Correct (not first try).`);
-        highlightCountry(correctCountry, BORDER_LINE_COLOR_PARTIAL);
-      }
-      nextQuestion();
-    } else {
-      quizRef.current.firstTryFlag = false;
-
-      // Highlight the correct country in red
-      highlightCountry(correctCountry, BORDER_LINE_COLOR_WRONG);
-
-      if (quizRef.current.type === 'name') {
-        setFeedback(`❌ Wrong!`);
-      } else {
-        setFeedback(`❌ Wrong! Correct country: ${correctCountry}`);
-      }
-    }
-  }
-
-  // TODO: Probably a lot better way to do this than looping through all countries
-  function clearAllCountryColors() {
-    for (const name in stateRef.current.countryLines) {
-      const lines = stateRef.current.countryLines[name];
-      if (!lines) continue;
-
-      lines.forEach((line) => {
-        // line.material = line.material.clone(); // clone to avoid affecting others
-        line.material.color.setHex(BORDER_LINE_COLOR);
+    // Start timer
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          handleTimeout();
+          return 0;
+        }
+        return prev - 1;
       });
-    }
-  }
-  function highlightCountry(name, color = BORDER_LINE_COLOR_CORRECT) {
-    const lines = stateRef.current.countryLines[name];
-    if (!lines) return;
-
-    lines.forEach((line) => {
-      line.material = line.material.clone(); // clone to avoid affecting others
-      line.material.color.setHex(color);
-    });
+    }, 1000);
   }
 
-  // Timer effect
-  useEffect(() => {
-    if (quizMode) {
-      timerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
-      }, 1000);
+  // Handle timeout
+  function handleTimeout() {
+    if (!quizRef.current) return;
+
+    clearInterval(timerRef.current);
+    const question = quizRef.current;
+    question.timeSpent = Math.floor(
+      (Date.now() - questionStartTimeRef.current) / 1000
+    );
+    question.attempts = 0;
+
+    setFeedbackType('timeout');
+    setFeedback(`⏰ Time's up! The answer was ${question.country}`);
+    setShowFeedback(true);
+
+    // TODO: Make flashing
+    highlightCountry(question.country, BORDER_LINE_COLOR_WRONG);
+    findLocation();
+
+    // Add to history
+    setQuestionHistory((prev) => [...prev, { ...question, result: 'timeout' }]);
+
+    // Reset streak
+    setStreak(0);
+
+    // setTimeout(() => {
+    // setShowFeedback(false);
+    setQuestionNumber((prev) => prev + 1);
+    startNewQuestion();
+    // }, 2000);
+    setTimeout(() => {
+      setShowFeedback(false);
+    }, 5000);
+  }
+
+  // Handle globe click
+  function handleGlobeClick(clickedCountry) {
+    if (!quizRef.current) return;
+
+    const question = quizRef.current;
+    const correctCountry = question.country;
+    question.attempts++;
+
+    if (clickedCountry === correctCountry) {
+      // Correct answer
+      clearInterval(timerRef.current);
+      question.timeSpent = Math.floor(
+        (Date.now() - questionStartTimeRef.current) / 1000
+      );
+
+      const points = calculatePoints(question);
+      setScore((prev) => prev + points);
+      setCorrectFirstTry((prev) => prev + (question.firstTry ? 1 : 0));
+      setStreak((prev) => {
+        const newStreak = prev + 1;
+        setMaxStreak((prevMax) => Math.max(prevMax, newStreak));
+        return newStreak;
+      });
+
+      setFeedbackType('correct');
+      setFeedback(
+        `✅ Correct! +${points} points${
+          question.firstTry ? ' (First try!)' : ''
+        }`
+      );
+      setShowFeedback(true);
+
+      highlightCountry(correctCountry, BORDER_LINE_COLOR_CORRECT);
+
+      // Add to history
+      setQuestionHistory((prev) => [
+        ...prev,
+        { ...question, result: 'correct', points },
+      ]);
+
+      setQuestionNumber((prev) => prev + 1);
+      startNewQuestion();
+      setTimeout(() => {
+        setShowFeedback(false);
+      }, 2000);
     } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      // Wrong answer
+      question.firstTry = false;
+      setStreak(0);
+
+      setFeedbackType('incorrect');
+      setFeedback(`❌ Wrong! Try again...`);
+      setShowFeedback(true);
+
+      highlightCountry(clickedCountry, BORDER_LINE_COLOR_WRONG);
+
+      // setTimeout(() => {
+      //   setShowFeedback(false);
+      // }, 1000);
     }
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [quizMode]);
-
-  function startQuiz() {
-    setCorrectCount(0);
-    setTotalCount(0);
-    setElapsed(0);
-    setQuizMode(true);
-    nextQuestion();
-  }
-  function endQuiz() {
-    setQuizMode(false);
-    setQuizQuestion(null);
-    setFeedback('');
-    clearAllCountryColors();
-    setShowSummary(true);
+    setTotalAttempts((prev) => prev + 1);
   }
 
-  function showLocation() {
+  // Calculate points based on performance
+  function calculatePoints(question) {
+    let points = 10; // Base points
+
+    // Bonus for first try
+    if (question.firstTry) points += 5;
+
+    // Bonus for speed (if under 10 seconds)
+    if (question.timeSpent < 10) points += 3;
+
+    // Streak bonus
+    if (streak > 0) points += Math.min(streak, 5);
+
+    return points;
+  }
+
+  // Travels to the country on the globe
+  // function findLocation() {
+  //   if (!quizRef.current) return;
+
+  //   const question = quizRef.current;
+  //   const country = question.country;
+
+  //   // Highlight the correct country briefly
+  //   highlightCountry(country, BORDER_LINE_COLOR_CORRECT);
+
+  //   setFeedbackType('hint');
+  //   setFeedback(`📍 ${country} is highlighted!`);
+  //   setShowFeedback(true);
+
+  //   setTimeout(() => {
+  //     setShowFeedback(false);
+  //     // Reset to normal color after showing
+  //     highlightCountry(country, BORDER_LINE_COLOR);
+  //   }, 2000);
+  // }
+  function findLocation() {
     console.log('Showing location');
     if (!quizRef.current) return;
     const countryName = quizRef.current.country;
@@ -200,272 +323,342 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     }
   }
 
+  // Utility functions
+  function clearAllCountryColors() {
+    for (const name in stateRef.current.countryLines) {
+      const lines = stateRef.current.countryLines[name];
+      if (!lines) continue;
+      lines.forEach((line) => {
+        line.material.color.setHex(BORDER_LINE_COLOR);
+      });
+    }
+  }
+
+  function highlightCountry(name, color = BORDER_LINE_COLOR_CORRECT) {
+    const lines = stateRef.current.countryLines[name];
+    if (!lines) return;
+
+    lines.forEach((line) => {
+      line.material = line.material.clone();
+      line.material.color.setHex(color);
+    });
+  }
+
+  // Quiz control functions
+  function startQuiz() {
+    setQuizMode(true);
+    setScore(0);
+    setTotalAttempts(0);
+    setCorrectFirstTry(0);
+    setStreak(0);
+    setMaxStreak(0);
+    setQuestionNumber(1); // Start at 1
+    setQuestionHistory([]);
+    setShowSummary(false);
+    clearAllCountryColors();
+    startNewQuestion();
+  }
+
+  function endQuiz() {
+    setQuizMode(false);
+    setQuizQuestion(null);
+    clearAllCountryColors();
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    setShowSummary(true);
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
   useImperativeHandle(ref, () => ({
-    handleGlobeClick, // now parent can call this
+    handleGlobeClick,
   }));
+
+  // Tutorial modal
+  if (showTutorial) {
+    return (
+      <div className="tutorial-overlay">
+        <div className="tutorial-modal">
+          <h2>How to Play</h2>
+
+          <div className="tutorial-section">
+            <h3>🎯 Objective</h3>
+            <p>
+              Click on the correct country on the globe based on the question
+              shown.
+            </p>
+          </div>
+
+          <div className="tutorial-section">
+            <h3>📝 Question Types</h3>
+            <ul>
+              <li>
+                <strong>Flag Recognition:</strong> Identify the country by its
+                flag
+              </li>
+              <li>
+                <strong>Capital Cities:</strong> Find the country by its capital
+                city
+              </li>
+              <li>
+                <strong>Country Names:</strong> Locate the country by its name
+              </li>
+              <li>
+                <strong>Mixed Challenge:</strong> Random mix of all types
+              </li>
+            </ul>
+          </div>
+
+          <div className="tutorial-section">
+            <h3>🏆 Scoring</h3>
+            <ul>
+              <li>
+                <strong>Base Points:</strong> 10 points per correct answer
+              </li>
+              <li>
+                <strong>First Try Bonus:</strong> +5 points for getting it right
+                first time
+              </li>
+              <li>
+                <strong>Speed Bonus:</strong> +3 points for answering under 10
+                seconds
+              </li>
+              <li>
+                <strong>Streak Bonus:</strong> +1 point per consecutive correct
+                answer
+              </li>
+            </ul>
+          </div>
+
+          <div className="tutorial-section"></div>
+
+          <button
+            onClick={() => setShowTutorial(false)}
+            className="tutorial-button"
+          >
+            Got it!
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* Quiz UI */}
-      {/* Quiz Controls */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          padding: '10px',
-          background: 'rgba(0,0,0,0.6)',
-          color: 'white',
-          borderRadius: '12px',
-          minWidth: 240,
-        }}
-      >
+      <div className="quiz-container">
         {!quizMode ? (
-          <>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Quiz</div>
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 12, opacity: 0.9, marginRight: 6 }}>
-                Type:
-              </label>
+          // Quiz Setup Screen
+          <div>
+            <div className="quiz-header">
+              <h2>🌍 World Quiz</h2>
+              <button
+                onClick={() => setShowTutorial(true)}
+                className="help-button"
+                title="How to play"
+              >
+                ❓
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label>Question Type:</label>
               <select
                 value={quizType}
                 onChange={(e) => setQuizType(e.target.value)}
+                className="form-select"
               >
-                <option value="flag">Flag</option>
-                <option value="capital">Capital</option>
-                <option value="name">Name</option>
+                {questionTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
-            </div>
-            <button
-              onClick={startQuiz}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 8,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Start Quiz
-            </button>
-          </>
-        ) : (
-          <>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-              }}
-            >
-              <div style={{ fontWeight: 700 }}>Quiz Running</div>
-              <div style={{ fontSize: 12, opacity: 0.9 }}>
-                {Math.floor(elapsed / 60)}:
-                {(elapsed % 60).toString().padStart(2, '0')}
+              <div className="form-description">
+                {questionTypes.find((t) => t.value === quizType)?.description}
               </div>
             </div>
 
-            <div style={{ marginTop: 8 }}>
-              <label style={{ fontSize: 12, opacity: 0.9, marginRight: 6 }}>
-                Type:
-              </label>
+            <div className="form-group">
+              <label>Number of Questions:</label>
               <select
-                value={quizType}
-                onChange={(e) => setQuizType(e.target.value)}
+                value={quizLength}
+                onChange={(e) => setQuizLength(Number(e.target.value))}
+                className="form-select"
               >
-                <option value="flag">Flag</option>
-                <option value="capital">Capital</option>
-                <option value="name">Name</option>
+                <option value={5}>5 Questions</option>
+                <option value={10}>10 Questions</option>
+                <option value={20}>20 Questions</option>
+                <option value={50}>50 Questions</option>
               </select>
             </div>
 
-            <div
-              style={{
-                marginTop: 8,
-                background: 'rgba(255,255,255,0.08)',
-                padding: 8,
-                borderRadius: 8,
-              }}
-            >
+            <button onClick={startQuiz} className="start-button">
+              🚀 Start Quiz
+            </button>
+          </div>
+        ) : (
+          // Quiz Game Screen
+          <div>
+            {/* Header */}
+            <div className="quiz-game-header">
+              <div>
+                <div className="question-counter">
+                  Question {questionNumber} / {quizLength}
+                </div>
+                <div className="score-display">Score: {score} pts</div>
+              </div>
+              <div className="timer-section">
+                <div
+                  className={`timer ${
+                    timeRemaining <= 10
+                      ? 'timer-danger'
+                      : timeRemaining <= 20
+                      ? 'timer-warning'
+                      : 'timer-normal'
+                  }`}
+                >
+                  {Math.floor(timeRemaining / 60)}:
+                  {(timeRemaining % 60).toString().padStart(2, '0')}
+                </div>
+                <div className="streak-display">Streak: {streak}</div>
+              </div>
+            </div>
+
+            {/* Question Display */}
+            <div className="question-display">
               {quizQuestion ? (
-                quizQuestion.type === 'flag' ? (
-                  <img
-                    src={quizQuestion.flag}
-                    alt="flag"
-                    style={{ width: 120 }}
-                  />
-                ) : quizQuestion.type === 'capital' ? (
-                  <div style={{ fontSize: 18, fontWeight: 600 }}>
-                    {quizQuestion.capital}
+                <div>
+                  <div className="question-type">
+                    {quizQuestion.type === 'flag'
+                      ? '🏁 Flag Recognition'
+                      : quizQuestion.type === 'capital'
+                      ? '🏛️ Capital City'
+                      : '🌍 Country Name'}
                   </div>
-                ) : (
-                  <div style={{ fontSize: 18, fontWeight: 600 }}>
-                    {quizQuestion.country}
-                  </div>
-                )
+
+                  {quizQuestion.type === 'flag' ? (
+                    <div className="question-content">
+                      <img
+                        src={quizQuestion.flag}
+                        alt="flag"
+                        className="flag-image"
+                      />
+                      <div className="question-instruction">
+                        Click the country this flag belongs to
+                      </div>
+                    </div>
+                  ) : quizQuestion.type === 'capital' ? (
+                    <div className="question-content">
+                      <div className="question-text">
+                        {quizQuestion.capital}
+                      </div>
+                      <div className="question-instruction">
+                        Click the country with this capital city
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="question-content">
+                      <div className="question-text">
+                        {quizQuestion.country}
+                      </div>
+                      <div className="question-instruction">
+                        Click this country on the globe
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
-                'Click Next Question'
+                <div className="loading-text">Loading question...</div>
               )}
             </div>
 
-            <div
-              style={{
-                marginTop: 8,
-                display: 'flex',
-                gap: 8,
-                flexWrap: 'wrap',
-              }}
-            >
-              <button
-                onClick={nextQuestion}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                }}
-              >
-                Next Question
+            {/* Action Buttons */}
+            <div className="action-buttons">
+              <button onClick={findLocation} className="find-location-button">
+                📍 Find Location
               </button>
-              <button
-                onClick={showLocation}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                }}
-              >
-                Show Location
-              </button>
-              <button
-                onClick={endQuiz}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                }}
-              >
-                End Quiz
+
+              <button onClick={endQuiz} className="end-button">
+                🏁 End
               </button>
             </div>
 
-            {feedback && (
-              <div
-                style={{
-                  marginTop: 8,
-                  fontWeight: 700,
-                  color: feedback.includes('✅') ? 'lightgreen' : '#fca5a5',
-                }}
-              >
-                {feedback}
-              </div>
+            {/* Feedback */}
+            {showFeedback && (
+              <div className={`feedback ${feedbackType}`}>{feedback}</div>
             )}
 
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.95 }}>
+            {/* Stats */}
+            <div className="stats-grid">
               <div>
-                Score: <b>{correctCount}</b> / <b>{totalCount}</b>
+                Accuracy: <strong>{accuracy}%</strong>
               </div>
               <div>
-                Accuracy: <b>{accuracy}%</b>
+                Max Streak: <strong>{maxStreak}</strong>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
 
       {/* Quiz Summary Modal */}
       {showSummary && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '16px',
-              maxWidth: '400px',
-              textAlign: 'center',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <h2 style={{ margin: '0 0 20px 0', color: '#1e293b' }}>
-              Quiz Complete!
-            </h2>
+        <div className="summary-overlay">
+          <div className="summary-modal">
+            <div className="summary-emoji">
+              {score >= 80
+                ? '🏆'
+                : score >= 60
+                ? '🥈'
+                : score >= 40
+                ? '🥉'
+                : '📊'}
+            </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 'bold',
-                  color: '#3b82f6',
-                  marginBottom: '8px',
-                }}
-              >
-                {correctCount} / {totalCount}
-              </div>
-              <div style={{ fontSize: '16px', color: '#64748b' }}>
-                Accuracy: {accuracy}%
+            <h2>Quiz Complete!</h2>
+
+            <div className="summary-score">
+              <div className="score-number">{score} points</div>
+              <div className="score-details">
+                {correctFirstTry} / {totalAttempts} correct ({accuracy}%
+                accuracy)
               </div>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <div
-                style={{
-                  fontSize: '14px',
-                  color: '#64748b',
-                  marginBottom: '8px',
-                }}
-              >
-                Time: {Math.floor(elapsed / 60)}:
-                {(elapsed % 60).toString().padStart(2, '0')}
+            <div className="summary-stats">
+              <div className="stat-item">
+                <div className="stat-label">Max Streak</div>
+                <div className="stat-value">{maxStreak}</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-label">Avg Time</div>
+                <div className="stat-value">{averageTime}s</div>
               </div>
             </div>
 
-            <div
-              style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}
-            >
+            <div className="summary-actions">
               <button
                 onClick={() => {
                   setShowSummary(false);
                   startQuiz();
                 }}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                }}
+                className="try-again-button"
               >
-                Try Again
+                🔄 Try Again
               </button>
               <button
                 onClick={() => setShowSummary(false)}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  backgroundColor: '#e5e7eb',
-                  color: '#374151',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                }}
+                className="close-button"
               >
-                Close
+                ✖️ Close
               </button>
             </div>
           </div>

@@ -267,10 +267,6 @@
     "capital": "Palikir",
     "flag": "/flags/fm.svg"
   },
-  "Svalbard and Jan Mayen": {
-    "capital": "Longyearbyen",
-    "flag": "/flags/sj.svg"
-  },
   "Mongolia": {
     "capital": "Ulan Bator",
     "flag": "/flags/mn.svg"
@@ -946,10 +942,6 @@
   "Vatican City": {
     "capital": "Vatican City",
     "flag": "/flags/va.svg"
-  },
-  "Christmas Island": {
-    "capital": "Flying Fish Cove",
-    "flag": "/flags/cx.svg"
   },
   "Heard Island and McDonald Islands": {
     "capital": "—",

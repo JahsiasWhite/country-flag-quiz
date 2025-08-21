@@ -17,6 +17,9 @@ Images from:
 - https://github.com/Siqister/files
 - https://www.visibleearth.nasa.gov/collection/1484/blue-marble.?page=1
 
+Country Data:
+https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson
+
 ## Installing
 
 Clone this repo
