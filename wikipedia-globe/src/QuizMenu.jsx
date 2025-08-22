@@ -37,10 +37,11 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   const [questionHistory, setQuestionHistory] = useState([]);
 
   // Timer & Feedback
-  const [timeRemaining, setTimeRemaining] = useState(timeLimit);
+  const [timeElapsed, setTimeElapsed] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [feedbackType, setFeedbackType] = useState(''); // 'correct', 'incorrect', 'timeout'
   const [showFeedback, setShowFeedback] = useState(false);
+  // const [showNextButton, setShowNextButton] = useState(false);
 
   // Refs
   const timerRef = useRef(null);
@@ -52,13 +53,13 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     totalAttempts === 0
       ? 0
       : Math.round((correctFirstTry / totalAttempts) * 100);
-  const averageTime =
-    questionHistory.length === 0
-      ? 0
-      : Math.round(
-          questionHistory.reduce((sum, q) => sum + q.timeSpent, 0) /
-            questionHistory.length
-        );
+  // const averageTime =
+  //   questionHistory.length === 0
+  //     ? 0
+  //     : Math.round(
+  //         questionHistory.reduce((sum, q) => sum + q.timeSpent, 0) /
+  //           questionHistory.length
+  //       );
 
   // Generate question based on type
   function generateQuestion() {
@@ -89,7 +90,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   // Start new question
   function startNewQuestion() {
-    if (quizRef.questionNumber >= quizLength) {
+    if (quizRef.questionNumber > quizLength) {
       endQuiz();
       return;
     }
@@ -97,22 +98,14 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     const question = generateQuestion();
     setQuizQuestion(question);
     quizRef.current = question;
-    setTimeRemaining(timeLimit);
-    // setFeedback('');
-    // setFeedbackType('');
-    // setShowFeedback(false);
+    // setTimeElapsed(0);
+    // setShowNextButton(false);
     questionStartTimeRef.current = Date.now();
 
     // Start timer
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          handleTimeout();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeElapsed((prev) => prev + 1);
     }, 1000);
   }
 
@@ -130,8 +123,9 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setFeedbackType('timeout');
     setFeedback(`⏰ Time's up! The answer was ${question.country}`);
     setShowFeedback(true);
+    // setShowNextButton(true);
 
-    // TODO: Make flashing
+    // Flash the correct country red
     highlightCountry(question.country, BORDER_LINE_COLOR_WRONG);
     findLocation();
 
@@ -183,6 +177,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
         }`
       );
       setShowFeedback(true);
+      // setShowNextButton(true); // TODO: Is this necessary?
 
       highlightCountry(correctCountry, BORDER_LINE_COLOR_CORRECT);
 
@@ -283,6 +278,9 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       if (stateRef.current.moveCameraToCountry) {
         stateRef.current.moveCameraToCountry(centerLat, centerLon);
       }
+
+      // TODO Flash the correct country red
+      // highlightCountry(countryName, BORDER_LINE_COLOR_WRONG);
     }
   }
 
@@ -314,11 +312,22 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setTotalAttempts(0);
     setCorrectFirstTry(0);
     setStreak(0);
+    setTimeElapsed(0);
     setMaxStreak(0);
     quizRef.questionNumber = 1;
     setQuestionHistory([]);
     setShowSummary(false);
     clearAllCountryColors();
+    startNewQuestion();
+  }
+
+  function nextQuestion() {
+    setTotalAttempts((prev) => prev + 1); // TODO: Is question.attempts still used/needed??
+
+    clearAllCountryColors();
+    setShowFeedback(false);
+    // setShowNextButton(false);
+    quizRef.questionNumber++;
     startNewQuestion();
   }
 
@@ -505,17 +514,9 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                 <div className="score-display">Score: {score} pts</div>
               </div>
               <div className="timer-section">
-                <div
-                  className={`timer ${
-                    timeRemaining <= 10
-                      ? 'timer-danger'
-                      : timeRemaining <= 20
-                      ? 'timer-warning'
-                      : 'timer-normal'
-                  }`}
-                >
-                  {Math.floor(timeRemaining / 60)}:
-                  {(timeRemaining % 60).toString().padStart(2, '0')}
+                <div className="timer timer-normal">
+                  {Math.floor(timeElapsed / 60)}:
+                  {(timeElapsed % 60).toString().padStart(2, '0')}
                 </div>
                 <div className="streak-display">Streak: {streak}</div>
               </div>
@@ -575,6 +576,12 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                 📍 Find Location
               </button>
 
+              {/* {showNextButton && ( */}
+              <button onClick={nextQuestion} className="next-button">
+                ➡️ Next Question
+              </button>
+              {/* )} */}
+
               <button onClick={endQuiz} className="end-button">
                 🏁 End
               </button>
@@ -617,8 +624,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             <div className="summary-score">
               <div className="score-number">{score} points</div>
               <div className="score-details">
-                {correctFirstTry} / {totalAttempts} correct ({accuracy}%
-                accuracy)
+                {correctFirstTry} / {quizLength} correct ({accuracy}% accuracy)
               </div>
             </div>
 
@@ -628,8 +634,8 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                 <div className="stat-value">{maxStreak}</div>
               </div>
               <div className="stat-item">
-                <div className="stat-label">Avg Time</div>
-                <div className="stat-value">{averageTime}s</div>
+                <div className="stat-label">Time</div>
+                <div className="stat-value">{timeElapsed}s</div>
               </div>
             </div>
 

@@ -135,7 +135,7 @@
     "capital": "Vaduz",
     "flag": "/flags/li.svg"
   },
-  "São Tomé and Príncipe": {
+  "São Tomé and Principe": {
     "capital": "São Tomé",
     "flag": "/flags/st.svg"
   },
@@ -591,10 +591,6 @@
     "capital": "Dushanbe",
     "flag": "/flags/tj.svg"
   },
-  "Tokelau": {
-    "capital": "Fakaofo",
-    "flag": "/flags/tk.svg"
-  },
   "Botswana": {
     "capital": "Gaborone",
     "flag": "/flags/bw.svg"
@@ -690,10 +686,6 @@
   "Suriname": {
     "capital": "Paramaribo",
     "flag": "/flags/sr.svg"
-  },
-  "Réunion": {
-    "capital": "Saint-Denis",
-    "flag": "/flags/re.svg"
   },
   "Ukraine": {
     "capital": "Kyiv",

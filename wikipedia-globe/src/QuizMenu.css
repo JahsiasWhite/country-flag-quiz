@@ -185,7 +185,8 @@
 
 .find-location-button,
 .pause-button,
-.end-button {
+.end-button,
+.next-button {
   flex: 1;
   padding: 8px 12px;
   border-radius: 8px;
@@ -221,6 +222,15 @@
 
 .end-button:hover {
   background-color: #dc2626;
+}
+
+.next-button {
+  background-color: #10b981;
+  color: white;
+}
+
+.next-button:hover {
+  background-color: #059669;
 }
 
 /* Feedback */
@@ -436,6 +446,16 @@
   background-color: #d1d5db;
 }
 
+/* Flashing Animation */
+@keyframes flash-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.flash-red {
+  animation: flash-red 0.5s ease-in-out 3;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .quiz-container {
@@ -466,3 +486,4 @@ ul {
 option {
   color: black;
 }
+
