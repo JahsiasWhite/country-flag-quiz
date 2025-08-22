@@ -194,9 +194,10 @@ export default function GlobeWikipediaApp() {
     const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
 
     const loadTextures = () => {
-      const currentEarthTexUrl = stateRef.current.highResTextures
-        ? '/21k_earth_daymap.png'
-        : '/8k_earth_daymap.jpg';
+      // const currentEarthTexUrl = stateRef.current.highResTextures
+      //   ? '/21k_earth_daymap.png'
+      //   : '/8k_earth_daymap.jpg';
+      const currentEarthTexUrl = '/8k_earth_daymap.jpg';
       Promise.all([
         new Promise((res) => texLoader.load(currentEarthTexUrl, res)),
         // new Promise((res) => texLoader.load(bumpUrl, res)),
@@ -602,7 +603,8 @@ export default function GlobeWikipediaApp() {
       <QuizMenu countryMeta={countryMeta} stateRef={stateRef} ref={quizRef} />
 
       {/* Globe Controls */}
-      <div
+      {/* TODO: Find a better way to load high-res textures, then reenable this */}
+      {/* <div
         style={{
           position: 'absolute',
           top: 10,
@@ -630,7 +632,7 @@ export default function GlobeWikipediaApp() {
           />
           High-Res Textures
         </label>
-      </div>
+      </div> */}
     </div>
   );
 }
