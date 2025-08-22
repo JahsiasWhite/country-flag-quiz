@@ -144,6 +144,8 @@ export default function GlobeWikipediaApp() {
       const duration = 2000; // 2 seconds
       const startTime = Date.now();
 
+      controls.enabled = false;
+
       const animateCamera = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
@@ -162,6 +164,8 @@ export default function GlobeWikipediaApp() {
 
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
+        } else {
+          controls.enabled = true;
         }
       };
 

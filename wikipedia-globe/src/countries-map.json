@@ -123,7 +123,7 @@
     "capital": "Oranjestad",
     "flag": "/flags/aw.svg"
   },
-  "Saint Helena, Ascension and Tristan da Cunha": {
+  "Saint Helena": {
     "capital": "Jamestown",
     "flag": "/flags/sh.svg"
   },
@@ -879,7 +879,7 @@
     "capital": "Minsk",
     "flag": "/flags/by.svg"
   },
-  "Timor-Leste": {
+  "East Timor": {
     "capital": "Dili",
     "flag": "/flags/tl.svg"
   },

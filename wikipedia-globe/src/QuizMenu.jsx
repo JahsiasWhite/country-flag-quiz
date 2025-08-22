@@ -10,6 +10,7 @@ import {
   BORDER_LINE_COLOR_CORRECT,
   BORDER_LINE_COLOR_PARTIAL,
   BORDER_LINE_COLOR_WRONG,
+  QUESTION_TYPES,
 } from './constants';
 import './QuizMenu.css';
 
@@ -21,9 +22,9 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   const [timeLimit, setTimeLimit] = useState(30); // seconds per question
 
   // Quiz State
+  const [isOpen, setIsOpen] = useState(false);
   const [quizMode, setQuizMode] = useState(false);
   const [quizQuestion, setQuizQuestion] = useState(null);
-  const [questionNumber, setQuestionNumber] = useState(1); // Start at 1
   const [showSummary, setShowSummary] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
@@ -59,30 +60,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             questionHistory.length
         );
 
-  // Question types with descriptions
-  const questionTypes = [
-    {
-      value: 'flag',
-      label: 'Flag Recognition',
-      description: 'Identify countries by their flags',
-    },
-    {
-      value: 'capital',
-      label: 'Capital Cities',
-      description: 'Find countries by their capital cities',
-    },
-    {
-      value: 'name',
-      label: 'Country Names',
-      description: 'Locate countries by name',
-    },
-    {
-      value: 'mixed',
-      label: 'Mixed Challenge',
-      description: 'Random mix of all question types',
-    },
-  ];
-
   // Generate question based on type
   function generateQuestion() {
     const countryNames = Object.keys(countryMeta);
@@ -112,7 +89,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   // Start new question
   function startNewQuestion() {
-    if (questionNumber > quizLength) {
+    if (quizRef.questionNumber >= quizLength) {
       endQuiz();
       return;
     }
@@ -166,7 +143,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
     // setTimeout(() => {
     // setShowFeedback(false);
-    setQuestionNumber((prev) => prev + 1);
+    quizRef.questionNumber++;
     startNewQuestion();
     // }, 2000);
     setTimeout(() => {
@@ -198,6 +175,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
         return newStreak;
       });
 
+      // TODO: If 0 points, show why (e.g. used hint)
       setFeedbackType('correct');
       setFeedback(
         `✅ Correct! +${points} points${
@@ -214,7 +192,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
         { ...question, result: 'correct', points },
       ]);
 
-      setQuestionNumber((prev) => prev + 1);
+      quizRef.questionNumber++;
       startNewQuestion();
       setTimeout(() => {
         setShowFeedback(false);
@@ -235,11 +213,14 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       // }, 1000);
     }
 
-    setTotalAttempts((prev) => prev + 1);
+    setTotalAttempts((prev) => prev + 1); // TODO: Is this even used anymore? question.attemps
   }
 
   // Calculate points based on performance
   function calculatePoints(question) {
+    // If used a hint, no points
+    if (question.usedHint) return 0;
+
     let points = 10; // Base points
 
     // Bonus for first try
@@ -254,26 +235,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     return points;
   }
 
-  // Travels to the country on the globe
-  // function findLocation() {
-  //   if (!quizRef.current) return;
-
-  //   const question = quizRef.current;
-  //   const country = question.country;
-
-  //   // Highlight the correct country briefly
-  //   highlightCountry(country, BORDER_LINE_COLOR_CORRECT);
-
-  //   setFeedbackType('hint');
-  //   setFeedback(`📍 ${country} is highlighted!`);
-  //   setShowFeedback(true);
-
-  //   setTimeout(() => {
-  //     setShowFeedback(false);
-  //     // Reset to normal color after showing
-  //     highlightCountry(country, BORDER_LINE_COLOR);
-  //   }, 2000);
-  // }
   function findLocation() {
     console.log('Showing location');
     if (!quizRef.current) return;
@@ -287,6 +248,8 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       (item) => item.feature.name === countryName
     );
     if (!countryFeature || !countryFeature.feature.geometry) return;
+
+    quizRef.current.usedHint = true;
 
     const geom = countryFeature.feature.geometry;
 
@@ -352,7 +315,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setCorrectFirstTry(0);
     setStreak(0);
     setMaxStreak(0);
-    setQuestionNumber(1); // Start at 1
+    quizRef.questionNumber = 1;
     setQuestionHistory([]);
     setShowSummary(false);
     clearAllCountryColors();
@@ -383,6 +346,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   }));
 
   // Tutorial modal
+  // TODO: Move to separate component
   if (showTutorial) {
     return (
       <div className="tutorial-overlay">
@@ -453,11 +417,21 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   return (
     <>
-      <div className="quiz-container">
+      <div
+        className="quiz-container "
+        style={!isOpen ? { paddingBottom: '0px' } : {}}
+      >
         {!quizMode ? (
           // Quiz Setup Screen
           <div>
-            <div className="quiz-header">
+            <div
+              className="quiz-header"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
               <h2>🌍 World Quiz</h2>
               <button
                 onClick={() => setShowTutorial(true)}
@@ -466,43 +440,58 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
               >
                 ❓
               </button>
-            </div>
-
-            <div className="form-group">
-              <label>Question Type:</label>
-              <select
-                value={quizType}
-                onChange={(e) => setQuizType(e.target.value)}
-                className="form-select"
+              <span
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                  cursor: 'pointer',
+                }}
               >
-                {questionTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-              <div className="form-description">
-                {questionTypes.find((t) => t.value === quizType)?.description}
-              </div>
+                {isOpen ? '▲' : '▼'}
+              </span>
             </div>
 
-            <div className="form-group">
-              <label>Number of Questions:</label>
-              <select
-                value={quizLength}
-                onChange={(e) => setQuizLength(Number(e.target.value))}
-                className="form-select"
-              >
-                <option value={5}>5 Questions</option>
-                <option value={10}>10 Questions</option>
-                <option value={20}>20 Questions</option>
-                <option value={50}>50 Questions</option>
-              </select>
-            </div>
+            {isOpen && (
+              <>
+                <div className="form-group">
+                  <label>Question Type:</label>
+                  <select
+                    value={quizType}
+                    onChange={(e) => setQuizType(e.target.value)}
+                    className="form-select"
+                  >
+                    {QUESTION_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="form-description">
+                    {
+                      QUESTION_TYPES.find((t) => t.value === quizType)
+                        ?.description
+                    }
+                  </div>
+                </div>
 
-            <button onClick={startQuiz} className="start-button">
-              🚀 Start Quiz
-            </button>
+                <div className="form-group">
+                  <label>Number of Questions:</label>
+                  <select
+                    value={quizLength}
+                    onChange={(e) => setQuizLength(Number(e.target.value))}
+                    className="form-select"
+                  >
+                    <option value={5}>5 Questions</option>
+                    <option value={10}>10 Questions</option>
+                    <option value={20}>20 Questions</option>
+                    <option value={50}>50 Questions</option>
+                  </select>
+                </div>
+
+                <button onClick={startQuiz} className="start-button">
+                  🚀 Start Quiz
+                </button>
+              </>
+            )}
           </div>
         ) : (
           // Quiz Game Screen
@@ -511,7 +500,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             <div className="quiz-game-header">
               <div>
                 <div className="question-counter">
-                  Question {questionNumber} / {quizLength}
+                  Question {quizRef.questionNumber} / {quizLength}
                 </div>
                 <div className="score-display">Score: {score} pts</div>
               </div>

@@ -4,7 +4,10 @@
 
 1. Option to show names/flags directly on the country on the globe
 2. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
-3. Option to choose the quiz length. Maybe default at 10 questions
+3. Timer should just be total time its taking. No countdown. We should also add a "Next Question" button
+4. When you finish the question, all wrong guesses that had their border changed red, reset back to default
+5. The hoverInfo menu clashes and is buggy with the quiz menu. The hoverInfo menu should not go overtop the quiz menu.
+6. When you get a question wrong it zooms in on the correct country. It should also flash red
 
 # Globe Country Data Setup
 
@@ -16,6 +19,9 @@ Images from:
 
 - https://github.com/Siqister/files
 - https://www.visibleearth.nasa.gov/collection/1484/blue-marble.?page=1
+
+Favicon:
+https://www.svgrepo.com/svg/471481/globe-06
 
 Country Data:
 https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson
