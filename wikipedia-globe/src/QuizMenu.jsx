@@ -5,6 +5,7 @@ import React, {
   useState,
   useImperativeHandle,
 } from 'react';
+import * as THREE from 'three';
 import {
   BORDER_LINE_COLOR,
   BORDER_LINE_COLOR_CORRECT,
@@ -286,23 +287,67 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   // Utility functions
   function clearAllCountryColors() {
-    for (const name in stateRef.current.countryLines) {
-      const lines = stateRef.current.countryLines[name];
-      if (!lines) continue;
-      lines.forEach((line) => {
-        line.material.color.setHex(BORDER_LINE_COLOR);
-      });
+    const hg = stateRef.current.highlightGroup;
+    if (!hg) return;
+
+    // dispose meshes/materials to avoid leaks
+    for (let i = hg.children.length - 1; i >= 0; i--) {
+      const child = hg.children[i];
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+      hg.remove(child);
     }
+    // optional: track map if you add per-country caches
+    stateRef.current.highlightMeshes = {};
   }
 
   function highlightCountry(name, color = BORDER_LINE_COLOR_CORRECT) {
-    const lines = stateRef.current.countryLines[name];
-    if (!lines) return;
+    const entry = stateRef.current.countryLines?.[name];
+    const geom = stateRef.current.bordersGeometry;
+    const hg = stateRef.current.highlightGroup;
+    if (!entry || !geom || !hg) return;
 
-    lines.forEach((line) => {
-      line.material = line.material.clone();
-      line.material.color.setHex(color);
+    const { start, count } = entry; // count = number of vertices in segments
+    const pos = geom.getAttribute('position');
+
+    // copy just this country’s segment vertices into a new geometry
+    const arr = new Float32Array(count * 3);
+    let j = 0;
+    for (let i = start; i < start + count; i++) {
+      arr[j++] = pos.getX(i);
+      arr[j++] = pos.getY(i);
+      arr[j++] = pos.getZ(i);
+    }
+
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+
+    // draw on top of the base borders
+    const mat = new THREE.LineBasicMaterial({
+      color,
+      transparent: false,
+      opacity: 1.0,
+      depthTest: true, // ignore depth so it always shows
+      depthWrite: false, // don’t affect depth buffer
     });
+
+    const mesh = new THREE.LineSegments(g, mat);
+    mesh.renderOrder = 1000; // above base + group
+    hg.add(mesh);
+
+    // (optional) keep track if you want to un-highlight a single country later
+    if (!stateRef.current.highlightMeshes)
+      stateRef.current.highlightMeshes = {};
+    stateRef.current.highlightMeshes[name] = mesh;
+  }
+  function unhighlightCountry(name) {
+    const hg = stateRef.current.highlightGroup;
+    const mesh = stateRef.current.highlightMeshes?.[name];
+    if (!hg || !mesh) return;
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+    hg.remove(mesh);
+    delete stateRef.current.highlightMeshes[name];
   }
 
   // Quiz control functions

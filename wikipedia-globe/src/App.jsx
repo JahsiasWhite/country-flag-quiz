@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import RBush from 'rbush';
 import './App.css';
 
@@ -243,44 +244,85 @@ export default function GlobeWikipediaApp() {
         linewidth: 1,
         transparent: false,
         opacity: 0.65,
-        color: BORDER_LINE_COLOR,
+        vertexColors: true,
       });
 
       // This lets us map country names to materials
       // so we can highlight them later
       const countryLines = {}; // store country name -> array of line objects
+      const segments = [];
+      const colors = [];
+      const defaultColor = new THREE.Color(BORDER_LINE_COLOR);
 
+      const addRing = (ring) => {
+        for (let i = 0; i < ring.length - 1; i++) {
+          const [lon1, lat1] = ring[i];
+          const [lon2, lat2] = ring[i + 1];
+
+          const v1 = lonLatToVec3(lon1, lat1, R * 1.002);
+          const v2 = lonLatToVec3(lon2, lat2, R * 1.002);
+
+          segments.push(v1.x, v1.y, v1.z);
+          segments.push(v2.x, v2.y, v2.z);
+
+          // push default color twice (for both vertices)
+          colors.push(defaultColor.r, defaultColor.g, defaultColor.b);
+          colors.push(defaultColor.r, defaultColor.g, defaultColor.b);
+        }
+      };
+
+      let vertexOffset = 0;
       for (const f of features) {
         const geom = f.geometry;
+        if (!geom) continue;
+
+        const name =
+          f.properties.ADMIN ||
+          f.properties.NAME ||
+          f.properties.name ||
+          'Unknown';
+
         const coords = geom.coordinates;
         const type = geom.type;
-        const lines = [];
 
-        const addRing = (ring) => {
-          const pts = [];
-          for (const [lon, lat] of ring) {
-            const v = lonLatToVec3(lon, lat, R * 1.002);
-            pts.push(v.x, v.y, v.z);
-          }
-          const g = new THREE.BufferGeometry();
-          g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-          const line = new THREE.LineLoop(g, lineMat);
-          bordersGroup.add(line);
-          lines.push(line);
-        };
+        const start = vertexOffset; // record start of this country’s data
 
         if (type === 'Polygon') {
-          for (const ring of coords) addRing(ring);
+          for (const ring of coords) {
+            addRing(ring);
+            vertexOffset += (ring.length - 1) * 2; // two vertices per segment
+          }
         } else if (type === 'MultiPolygon') {
           for (const poly of coords) {
-            for (const ring of poly) addRing(ring);
+            for (const ring of poly) {
+              addRing(ring);
+              vertexOffset += (ring.length - 1) * 2;
+            }
           }
         }
 
-        const name = f.properties.name || 'Unknown';
-        countryLines[name] = lines;
+        const count = vertexOffset - start;
+        countryLines[name] = { start, count };
       }
+
+      // Build merged geometry
+      // These borders are by far the most performance-intensive part
+      // Merging them should have no visual impact but makes rendering 100x faster
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      const mergedLines = new THREE.LineSegments(g, lineMat);
+      bordersGroup.add(mergedLines);
+
+      // For highlighting, we need to create a separate group thats overlaid ontop
+      const highlightGroup = new THREE.Group();
+      highlightGroup.renderOrder = 999; // render last
+      group.add(highlightGroup);
+      stateRef.current.highlightGroup = highlightGroup;
+
       stateRef.current.countryLines = countryLines;
+      stateRef.current.bordersGeometry = g;
+      stateRef.current.bordersMesh = mergedLines;
 
       // Build R-tree for hover detection
       const tree = new RBush();

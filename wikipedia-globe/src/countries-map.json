@@ -183,10 +183,6 @@
     "capital": "Bishkek",
     "flag": "/flags/kg.svg"
   },
-  "Bouvet Island": {
-    "capital": "—",
-    "flag": "/flags/bv.svg"
-  },
   "Mauritania": {
     "capital": "Nouakchott",
     "flag": "/flags/mr.svg"
@@ -498,10 +494,6 @@
   "Brazil": {
     "capital": "Brasília",
     "flag": "/flags/br.svg"
-  },
-  "Mayotte": {
-    "capital": "Mamoudzou",
-    "flag": "/flags/yt.svg"
   },
   "Dominica": {
     "capital": "Roseau",
