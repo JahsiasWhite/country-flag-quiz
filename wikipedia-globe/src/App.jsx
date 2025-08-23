@@ -111,11 +111,11 @@ export default function GlobeWikipediaApp() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020617);
 
-    const cube = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshNormalMaterial()
-    );
-    scene.add(cube);
+    // const cube = new THREE.Mesh(
+    //   new THREE.BoxGeometry(1, 1, 1),
+    //   new THREE.MeshNormalMaterial()
+    // );
+    // scene.add(cube);
 
     const camera = new THREE.PerspectiveCamera(
       55,
@@ -123,7 +123,7 @@ export default function GlobeWikipediaApp() {
       0.1,
       1000
     );
-    camera.position.set(0, 0, 4.2);
+    camera.position.set(0, 0, 10);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -135,6 +135,7 @@ export default function GlobeWikipediaApp() {
     controls.enablePan = false;
     controls.minDistance = 2.2;
     controls.maxDistance = 8;
+    controls.target.set(0, 1, 0); // This makes globe appear lower
 
     // Function to move camera to a specific country
     const moveCameraToCountry = (lat, lon) => {

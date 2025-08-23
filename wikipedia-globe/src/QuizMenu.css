@@ -166,11 +166,6 @@
   margin-bottom: 8px;
 }
 
-.question-instruction {
-  font-size: 14px;
-  opacity: 0.8;
-}
-
 .loading-text {
   text-align: center;
   opacity: 0.8;
@@ -448,8 +443,13 @@
 
 /* Flashing Animation */
 @keyframes flash-red {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .flash-red {
@@ -464,11 +464,12 @@
     right: auto;
     margin: 10px;
     min-width: auto;
+    padding-bottom: 0;
   }
 
-  .action-buttons {
+  /* .action-buttons {
     flex-direction: column;
-  }
+  } */
 
   .summary-stats {
     grid-template-columns: 1fr;
@@ -476,6 +477,27 @@
 
   .summary-actions {
     flex-direction: column;
+  }
+
+  .stats-grid {
+    display: none;
+  }
+
+  .question-type {
+    display: none;
+  }
+
+  .question-display {
+    padding-bottom: 8px;
+  }
+
+  .start-button {
+    margin-bottom: 16px;
+  }
+
+  .flag-image {
+    width: 80%;
+    max-height: 200px;
   }
 }
 
@@ -486,4 +508,3 @@ ul {
 option {
   color: black;
 }
-

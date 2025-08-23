@@ -235,10 +235,6 @@
     "capital": "Yerevan",
     "flag": "/flags/am.svg"
   },
-  "Cocos (Keeling) Islands": {
-    "capital": "West Island",
-    "flag": "/flags/cc.svg"
-  },
   "Costa Rica": {
     "capital": "San José",
     "flag": "/flags/cr.svg"
@@ -443,7 +439,7 @@
     "capital": "Nuuk",
     "flag": "/flags/gl.svg"
   },
-  "Cape Verde": {
+  "Cabo Verde": {
     "capital": "Praia",
     "flag": "/flags/cv.svg"
   },
@@ -931,7 +927,7 @@
     "capital": "—",
     "flag": "/flags/hm.svg"
   },
-  "Macau": {
+  "Macao S.A.R": {
     "capital": "—",
     "flag": "/flags/mo.svg"
   },

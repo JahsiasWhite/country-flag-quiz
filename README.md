@@ -3,11 +3,12 @@
 # TODO
 
 1. Add loading indicator when app first starts
-2. Option to show names/flags directly on the country on the globe
-3. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
-4. When you finish the question, all wrong guesses that had their border changed red should reset back to default
-5. The hoverInfo menu clashes and is buggy with the quiz menu. The hoverInfo menu should not go overtop the quiz menu.
+2. When you enter quiz mode, onHOver should stop showing the hoverInfo
+3. Option to show names/flags directly on the country on the globe
+4. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
+5. When you finish the question, all wrong guesses that had their border changed red should reset back to default
 6. When you get a question wrong it zooms in on the correct country. It should also flash red
+7. The findLocation uses the middle point of a location. Some island chains have it wrong then. something by australia is really messed up
 
 # Globe Country Data Setup
 

@@ -21,21 +21,17 @@ export const QUESTION_TYPES = [
   {
     value: 'flag',
     label: 'Flag Recognition',
-    description: 'Identify countries by their flags',
   },
   {
     value: 'capital',
     label: 'Capital Cities',
-    description: 'Find countries by their capital cities',
   },
   {
     value: 'name',
     label: 'Country Names',
-    description: 'Locate countries by name',
   },
   {
     value: 'mixed',
     label: 'Mixed Challenge',
-    description: 'Random mix of all question types',
   },
 ];

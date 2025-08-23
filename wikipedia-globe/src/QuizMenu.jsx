@@ -234,11 +234,17 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   function findLocation() {
     console.log('Showing location');
     if (!quizRef.current) return;
-    const countryName = quizRef.current.country;
 
     // Find the country in the features data to get its coordinates
     const features = stateRef.current.features;
     if (!features) return;
+
+    let countryName = quizRef.current.country;
+
+    // Identical flags
+    if (countryName === 'United States Minor Outlying Islands') {
+      countryName = 'United States of America';
+    }
 
     const countryFeature = features.find(
       (item) => item.feature.name === countryName
@@ -453,6 +459,11 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                 <strong>Streak Bonus:</strong> +1 point per consecutive correct
                 answer
               </li>
+              <li>
+                <strong>Find Location:</strong> Moves camera to the correct
+                location. In doing so, you will not get any points for that
+                question
+              </li>
             </ul>
           </div>
 
@@ -519,12 +530,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                       </option>
                     ))}
                   </select>
-                  <div className="form-description">
-                    {
-                      QUESTION_TYPES.find((t) => t.value === quizType)
-                        ?.description
-                    }
-                  </div>
                 </div>
 
                 <div className="form-group">
@@ -586,26 +591,17 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                         alt="flag"
                         className="flag-image"
                       />
-                      <div className="question-instruction">
-                        Click the country this flag belongs to
-                      </div>
                     </div>
                   ) : quizQuestion.type === 'capital' ? (
                     <div className="question-content">
                       <div className="question-text">
                         {quizQuestion.capital}
                       </div>
-                      <div className="question-instruction">
-                        Click the country with this capital city
-                      </div>
                     </div>
                   ) : (
                     <div className="question-content">
                       <div className="question-text">
                         {quizQuestion.country}
-                      </div>
-                      <div className="question-instruction">
-                        Click this country on the globe
                       </div>
                     </div>
                   )}
