@@ -615,7 +615,7 @@ export default function GlobeWikipediaApp() {
         }}
       />
 
-      {hoverInfo && !quizRef.current.quizMode && (
+      {hoverInfo && (
         <div
           ref={tooltipRef}
           className="hover-info"

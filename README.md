@@ -1,6 +1,7 @@
 # ISSUES
 
 1. The findLocation uses the middle point of a location. Some island chains have it wrong then. something by australia is really messed up
+2. hoverInfo can get stuck on quiz menu. Be out of quiz, have hoverInfo go ontop, then start quiz. It is now stuck
 
 # TODO
 
