@@ -148,7 +148,10 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   // Handle globe click
   function handleGlobeClick(clickedCountry) {
-    if (!quizRef.current) return;
+    if (!quizRef.current) {
+      highlightCountry(clickedCountry, BORDER_LINE_COLOR_CORRECT);
+      return;
+    }
 
     const question = quizRef.current;
     const correctCountry = question.country;
@@ -390,6 +393,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       clearInterval(timerRef.current);
     }
     setShowSummary(true);
+    quizRef.current = null;
   }
 
   // Cleanup on unmount

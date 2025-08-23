@@ -460,7 +460,7 @@
 @media (max-width: 768px) {
   .quiz-container {
     position: relative;
-    top: auto;
+    /* top: auto; */
     right: auto;
     margin: 10px;
     min-width: auto;

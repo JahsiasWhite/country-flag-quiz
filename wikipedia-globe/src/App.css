@@ -42,6 +42,29 @@ body,
   }
 }
 
+@media (max-width: 768px) {
+  .hover-info {
+    /* move to bottom center */
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: 5% !important;
+    top: auto !important;
+  }
+}
+
+.hover-info {
+  position: absolute;
+  max-width: 260px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: #1e293b;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  pointer-events: none;
+  z-index: 1000;
+}
+
 .card {
   padding: 2em;
 }

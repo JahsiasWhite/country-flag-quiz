@@ -540,6 +540,34 @@ export default function GlobeWikipediaApp() {
       }
     }
 
+    /* Mobile Stuff */
+    let touchStartPos = { x: 0, y: 0 };
+    // Touch start
+    function onTouchStart(ev) {
+      const touch = ev.touches[0];
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+      isDragging = false;
+    }
+    // Touch move
+    function onTouchMove(ev) {
+      const touch = ev.touches[0];
+      if (
+        Math.abs(touch.clientX - touchStartPos.x) > 2 ||
+        Math.abs(touch.clientY - touchStartPos.y) > 2
+      ) {
+        isDragging = true;
+      }
+    }
+    // Touch end
+    function onTouchEnd(ev) {
+      if (!isDragging) {
+        onMouseMove(ev); // your click handler
+      }
+    }
+    renderer.domElement.addEventListener('touchstart', onTouchStart, false);
+    renderer.domElement.addEventListener('touchmove', onTouchMove, false);
+    renderer.domElement.addEventListener('touchend', onTouchEnd, false);
+
     window.addEventListener('resize', onResize);
     renderer.domElement.addEventListener('mousedown', onMouseDown);
     renderer.domElement.addEventListener('mousemove', onMouseMoveDrag);
@@ -587,22 +615,13 @@ export default function GlobeWikipediaApp() {
         }}
       />
 
-      {hoverInfo && (
+      {hoverInfo && !quizRef.current.quizMode && (
         <div
           ref={tooltipRef}
+          className="hover-info"
           style={{
-            position: 'absolute',
-            maxWidth: '260px',
             top: `${hoverInfo.pos.y}px`,
             left: `${hoverInfo.pos.x}px`,
-            borderRadius: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            background: 'rgba(255,255,255,0.95)',
-            color: '#1e293b',
-            padding: '10px',
-            border: '1px solid #cbd5e1',
-            pointerEvents: 'none',
-            zIndex: 1000,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
