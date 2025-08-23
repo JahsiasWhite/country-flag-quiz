@@ -403,6 +403,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   useImperativeHandle(ref, () => ({
     handleGlobeClick,
+    quizMode,
   }));
 
   // Tutorial modal
