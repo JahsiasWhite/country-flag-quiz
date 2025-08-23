@@ -132,10 +132,13 @@ export default function GlobeWikipediaApp() {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.enablePan = false;
+    controls.enablePan = true;
     controls.minDistance = 2.2;
     controls.maxDistance = 8;
-    controls.target.set(0, 1, 0); // This makes globe appear lower
+    // controls.target.set(0, 1, 0); // This makes globe appear lower
+
+    // TODO: TESTING FOR MOBILE
+    controls.panSpeed = 0.5;
 
     // Function to move camera to a specific country
     const moveCameraToCountry = (lat, lon) => {
@@ -386,6 +389,9 @@ export default function GlobeWikipediaApp() {
     }
 
     function onMouseMove(ev) {
+      // Dont show hover info when in quiz mode
+      if (quizRef.current && quizRef.current.quizMode) return;
+
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
