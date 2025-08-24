@@ -55,10 +55,6 @@
     "capital": "Kabul",
     "flag": "/flags/af.svg"
   },
-  "Guadeloupe": {
-    "capital": "Basse-Terre",
-    "flag": "/flags/gp.svg"
-  },
   "Kenya": {
     "capital": "Nairobi",
     "flag": "/flags/ke.svg"
@@ -255,7 +251,7 @@
     "capital": "Tehran",
     "flag": "/flags/ir.svg"
   },
-  "Micronesia": {
+  "Federated States of Micronesia": {
     "capital": "Palikir",
     "flag": "/flags/fm.svg"
   },
@@ -295,7 +291,7 @@
     "capital": "Tórshavn",
     "flag": "/flags/fo.svg"
   },
-  "Saint Barthélemy": {
+  "Saint Barthelemy": {
     "capital": "Gustavia",
     "flag": "/flags/bl.svg"
   },
@@ -335,7 +331,7 @@
     "capital": "Malé",
     "flag": "/flags/mv.svg"
   },
-  "Serbia": {
+  "Republic of Serbia": {
     "capital": "Belgrade",
     "flag": "/flags/rs.svg"
   },
@@ -599,10 +595,6 @@
     "capital": "Nicosia",
     "flag": "/flags/cy.svg"
   },
-  "Caribbean Netherlands": {
-    "capital": "Kralendijk",
-    "flag": "/flags/bq.svg"
-  },
   "Vanuatu": {
     "capital": "Port Vila",
     "flag": "/flags/vu.svg"
@@ -787,10 +779,6 @@
     "capital": "Skopje",
     "flag": "/flags/mk.svg"
   },
-  "French Guiana": {
-    "capital": "Cayenne",
-    "flag": "/flags/gf.svg"
-  },
   "Namibia": {
     "capital": "Windhoek",
     "flag": "/flags/na.svg"
@@ -815,7 +803,7 @@
     "capital": "Managua",
     "flag": "/flags/ni.svg"
   },
-  "Åland Islands": {
+  "Aland": {
     "capital": "Mariehamn",
     "flag": "/flags/ax.svg"
   },
@@ -871,10 +859,6 @@
     "capital": "Sana'a",
     "flag": "/flags/ye.svg"
   },
-  "Martinique": {
-    "capital": "Fort-de-France",
-    "flag": "/flags/mq.svg"
-  },
   "Haiti": {
     "capital": "Port-au-Prince",
     "flag": "/flags/ht.svg"
@@ -919,7 +903,7 @@
     "capital": "Bogotá",
     "flag": "/flags/co.svg"
   },
-  "Vatican City": {
+  "Vatican": {
     "capital": "Vatican City",
     "flag": "/flags/va.svg"
   },

@@ -63,47 +63,58 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   //       );
 
   // Generate question based on type
-  function generateQuestion() {
+  function generateProblemSet() {
     const countryNames = Object.keys(countryMeta);
-    let availableCountries = [...countryNames];
 
-    const country =
-      availableCountries[Math.floor(Math.random() * availableCountries.length)];
-    const type =
-      quizType === 'mixed'
-        ? ['flag', 'capital', 'name'][Math.floor(Math.random() * 3)]
-        : quizType;
+    // shuffle the array
+    const shuffled = [...countryNames].sort(() => Math.random() - 0.5);
 
-    const question = {
-      id: Date.now(),
-      country,
-      type,
-      flag: countryMeta[country].flag,
-      capital: countryMeta[country].capital,
-      firstTry: true,
-      timeSpent: 0,
-      attempts: 0,
-      startTime: Date.now(),
-    };
+    // determine length
+    const length =
+      quizLength === 'all'
+        ? shuffled.length
+        : Math.min(quizLength, shuffled.length);
 
-    return question;
+    // const country = shuffled[length - 1]; // Get the last country in the selected slice
+    // const index = length - 1;
+    return shuffled.slice(0, length).map((country, index) => {
+      const type =
+        quizType === 'mixed'
+          ? ['flag', 'capital', 'name'][Math.floor(Math.random() * 3)]
+          : quizType;
+
+      return {
+        id: Date.now() + index,
+        country,
+        type,
+        flag: countryMeta[country].flag,
+        capital: countryMeta[country].capital,
+        firstTry: true,
+        timeSpent: 0,
+        attempts: 0,
+        startTime: Date.now(),
+      };
+    });
   }
 
   // Start new question
   function startNewQuestion() {
-    if (quizRef.questionNumber > quizLength) {
+    if (!quizRef.problemSet) return;
+
+    if (quizRef.problemIndex >= quizRef.problemSet.length) {
       endQuiz();
       return;
     }
 
-    const question = generateQuestion();
-    setQuizQuestion(question);
-    quizRef.current = question;
-    // setTimeElapsed(0);
-    // setShowNextButton(false);
+    const nextQ = quizRef.problemSet[quizRef.problemIndex];
+    setQuizQuestion(nextQ);
+    quizRef.current = nextQ;
     questionStartTimeRef.current = Date.now();
 
-    // Start timer
+    // TODO: This is all funky. We should just increment the visual number by 1. (So it shows "Question 1/5" instead of "0/5")
+    // We are having issues because this is incremented differently in different places.
+    quizRef.problemIndex++;
+
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimeElapsed((prev) => prev + 1);
@@ -176,7 +187,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       // TODO: If 0 points, show why (e.g. used hint)
       setFeedbackType('correct');
       setFeedback(
-        `✅ Correct! +${points} points${
+        `✅ ${clickedCountry} is correct! +${points} points${
           question.firstTry ? ' (First try!)' : ''
         }`
       );
@@ -202,7 +213,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       setStreak(0);
 
       setFeedbackType('incorrect');
-      setFeedback(`❌ Wrong! Try again...`);
+      setFeedback(`❌ ${clickedCountry} is wrong! Try again...`);
       setShowFeedback(true);
 
       highlightCountry(clickedCountry, BORDER_LINE_COLOR_WRONG);
@@ -372,13 +383,18 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setQuestionHistory([]);
     setShowSummary(false);
     clearAllCountryColors();
+
+    const problems = generateProblemSet();
+    quizRef.problemSet = problems; // store entire quiz
+    quizRef.problemIndex = 0;
+
     startNewQuestion();
   }
 
   function nextQuestion() {
     setTotalAttempts((prev) => prev + 1); // TODO: Is question.attempts still used/needed??
 
-    clearAllCountryColors();
+    // clearAllCountryColors(); // TODO: Just unlight the incorrect ones
     setShowFeedback(false);
     // setShowNextButton(false);
     quizRef.questionNumber++;
@@ -541,13 +557,20 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                   <label>Number of Questions:</label>
                   <select
                     value={quizLength}
-                    onChange={(e) => setQuizLength(Number(e.target.value))}
+                    onChange={(e) =>
+                      setQuizLength(
+                        e.target.value === 'all'
+                          ? 'all'
+                          : Number(e.target.value)
+                      )
+                    }
                     className="form-select"
                   >
                     <option value={5}>5 Questions</option>
                     <option value={10}>10 Questions</option>
                     <option value={20}>20 Questions</option>
                     <option value={50}>50 Questions</option>
+                    <option value="all">All Countries</option>
                   </select>
                 </div>
 
@@ -564,7 +587,8 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             <div className="quiz-game-header">
               <div>
                 <div className="question-counter">
-                  Question {quizRef.questionNumber} / {quizLength}
+                  Question {quizRef.questionNumber} /{' '}
+                  {quizRef.problemSet.length}
                 </div>
                 <div className="score-display">Score: {score} pts</div>
               </div>
@@ -581,13 +605,13 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             <div className="question-display">
               {quizQuestion ? (
                 <div>
-                  <div className="question-type">
+                  {/* <div className="question-type">
                     {quizQuestion.type === 'flag'
                       ? '🏁 Flag Recognition'
                       : quizQuestion.type === 'capital'
                       ? '🏛️ Capital City'
                       : '🌍 Country Name'}
-                  </div>
+                  </div> */}
 
                   {quizQuestion.type === 'flag' ? (
                     <div className="question-content">
@@ -670,7 +694,8 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
             <div className="summary-score">
               <div className="score-number">{score} points</div>
               <div className="score-details">
-                {correctFirstTry} / {quizLength} correct ({accuracy}% accuracy)
+                {correctFirstTry} / {quizRef.problemSet.length} correct (
+                {accuracy}% accuracy)
               </div>
             </div>
 
@@ -681,7 +706,10 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
               </div>
               <div className="stat-item">
                 <div className="stat-label">Time</div>
-                <div className="stat-value">{timeElapsed}s</div>
+                <div className="stat-value">
+                  {Math.floor(timeElapsed / 60)}:
+                  {(timeElapsed % 60).toString().padStart(2, '0')}
+                </div>
               </div>
             </div>
 
