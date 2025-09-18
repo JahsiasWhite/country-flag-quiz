@@ -22,7 +22,7 @@
 
 An interactive 3D globe that helps users study basic country data, including location, capital city, and flags. Can be ran locally or accessed online at: [countryflagquiz.com](https://www.countryflagquiz.com)
 
-![Country Flag Quiz Example](/public/countryflagquizexample.png)
+![Country Flag Quiz Example](/countryflagquizexample.png)
 
 ## Installing
 
