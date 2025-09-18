@@ -18,22 +18,11 @@
 6. findLocation should also flash red
 7. default (white) borders should display over wrong/correct (red/green) borders. If a country is surrounded, it can be hard to know it hasn't been clicked
 
-# Globe Country Data Setup
+# Country Flag Quiz
 
-This project fetches country metadata and flags from the REST Countries API, prepares JSON files, and downloads all SVG flags locally for use in interactive globe applications.
+An interactive 3D globe that helps users study basic country data, including location, capital city, and flags. Can be ran locally or accessed online at: [countryflagquiz.com](https://www.countryflagquiz.com)
 
-It also includes a globe component to visualize countries, their names, capitals, and flags in real-time. Includes an additional quiz feature
-
-Images from:
-
-- https://github.com/Siqister/files
-- https://www.visibleearth.nasa.gov/collection/1484/blue-marble.?page=1
-
-Favicon:
-https://www.svgrepo.com/svg/471481/globe-06
-
-Country Data:
-https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson
+![Country Flag Quiz Example](/public/countryflagquizexample.png)
 
 ## Installing
 
@@ -71,3 +60,24 @@ npm i
 ```bash
 npm run dev
 ```
+
+## Sources
+
+This project fetches border data from the geo-countries dataset. All country data and earth textures are installed locally.
+
+Earth Textures:
+
+- https://github.com/Siqister/files
+- https://www.visibleearth.nasa.gov/collection/1484/blue-marble.?page=1
+
+Country Data:
+
+- https://restcountries.com/v3.1/all?fields=name,capital,flags,cca2
+
+Border Data:
+
+- https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson
+
+Favicon:
+
+- https://www.svgrepo.com/svg/471481/globe-06
