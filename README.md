@@ -1,23 +1,3 @@
-# ISSUES
-
-1. The findLocation uses the middle point of a location. Some island chains have it wrong then. something by australia is really messed up
-2. hoverInfo can get stuck on quiz menu. Be out of quiz, have hoverInfo go ontop, then start quiz. It is now stuck
-3. Hovers over wrong location:
-
-- United States minor outlying islands
-- Kiribati
-- Netherlands
-
-# TODO
-
-1. I should use my own countries.geojson (its a large file) because I've had to prune a lot of countries from countries-map which is more specific. Currently using restcountries for countries-map EX: countries-map has "Netherlands Islands" where this is just labeled as "Netherlands" on geojson.
-2. Add loading indicator when app first starts
-3. Option to show names/flags directly on the country on the globe
-4. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
-5. When you finish the question, all wrong guesses that had their border changed red should reset back to default
-6. findLocation should also flash red
-7. default (white) borders should display over wrong/correct (red/green) borders. If a country is surrounded, it can be hard to know it hasn't been clicked
-
 # Country Flag Quiz
 
 An interactive 3D globe that helps users study basic country data, including location, capital city, and flags. Can be ran locally or accessed online at: [countryflagquiz.com](https://www.countryflagquiz.com)
@@ -81,3 +61,24 @@ Border Data:
 Favicon:
 
 - https://www.svgrepo.com/svg/471481/globe-06
+
+# ISSUES
+
+1. The findLocation uses the middle point of a location. Some island chains have it wrong then. something by australia is really messed up
+2. hoverInfo can get stuck on quiz menu. Be out of quiz, have hoverInfo go ontop, then start quiz. It is now stuck
+3. Hovers over wrong location:
+
+- United States minor outlying islands
+- Kiribati
+- Netherlands
+
+# TODO
+
+1. I should use my own countries.geojson (its a large file) because I've had to prune a lot of countries from countries-map which is more specific. Currently using restcountries for countries-map EX: countries-map has "Netherlands Islands" where this is just labeled as "Netherlands" on geojson.
+2. Add loading indicator when app first starts
+3. Option to show names/flags directly on the country on the globe
+4. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
+5. When you finish the question, all wrong guesses that had their border changed red should reset back to default
+6. findLocation should also flash red
+7. default (white) borders should display over wrong/correct (red/green) borders. If a country is surrounded, it can be hard to know it hasn't been clicked
+
