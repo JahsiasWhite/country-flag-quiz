@@ -64,13 +64,15 @@ Favicon:
 
 # ISSUES
 
-1. The findLocation uses the middle point of a location. Some island chains have it wrong then. something by australia is really messed up
+1. The findLocation uses the middle point of a location. Some island chains have it wrong then. Fiji is really messed up
 2. hoverInfo can get stuck on quiz menu. Be out of quiz, have hoverInfo go ontop, then start quiz. It is now stuck
 3. Hovers over wrong location:
 
 - United States minor outlying islands
 - Kiribati
 - Netherlands
+- Vatican (Doesnt show on map?)
+- Tuvalu (Too small on map... cant click)
 
 # TODO
 
@@ -80,5 +82,4 @@ Favicon:
 4. We already have partial wikipedia integration. Now we should have a "Show More" button for the countries. It will open a "card" that has the wiki info on it for easy fact viewing
 5. When you finish the question, all wrong guesses that had their border changed red should reset back to default
 6. findLocation should also flash red
-7. default (white) borders should display over wrong/correct (red/green) borders. If a country is surrounded, it can be hard to know it hasn't been clicked
-
+7. default (white) borders should display over wrong/correct (red/green) borders. If a country is surrounded, it can be hard to know it hasn't been clicked. Maybe when you get it wrong/correct it should flash the whole border and then after a few seconds, have the default border color be overtop

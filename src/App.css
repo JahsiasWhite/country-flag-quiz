@@ -12,6 +12,12 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
+  background-color: #020617;
+}
+
+input {
+  margin: 0;
+  margin-right: 5px;
 }
 
 .logo {

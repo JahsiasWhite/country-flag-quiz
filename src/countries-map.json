@@ -17,7 +17,8 @@
   },
   "Puerto Rico": {
     "capital": "San Juan",
-    "flag": "/flags/pr.svg"
+    "flag": "/flags/pr.svg",
+    "island": true
   },
   "United States of America": {
     "capital": "Washington, D.C.",
@@ -25,7 +26,8 @@
   },
   "South Georgia and the Islands": {
     "capital": "King Edward Point",
-    "flag": "/flags/gs.svg"
+    "flag": "/flags/gs.svg",
+    "island": true
   },
   "Israel": {
     "capital": "Jerusalem",
@@ -37,7 +39,8 @@
   },
   "British Virgin Islands": {
     "capital": "Road Town",
-    "flag": "/flags/vg.svg"
+    "flag": "/flags/vg.svg",
+    "island": true
   },
   "Myanmar": {
     "capital": "Naypyidaw",
@@ -49,7 +52,8 @@
   },
   "Turks and Caicos Islands": {
     "capital": "Cockburn Town",
-    "flag": "/flags/tc.svg"
+    "flag": "/flags/tc.svg",
+    "island": true
   },
   "Afghanistan": {
     "capital": "Kabul",
@@ -61,7 +65,8 @@
   },
   "American Samoa": {
     "capital": "Pago Pago",
-    "flag": "/flags/as.svg"
+    "flag": "/flags/as.svg",
+    "island": true
   },
   "Angola": {
     "capital": "Luanda",
@@ -73,11 +78,13 @@
   },
   "Malta": {
     "capital": "Valletta",
-    "flag": "/flags/mt.svg"
+    "flag": "/flags/mt.svg",
+    "island": true
   },
   "Jersey": {
     "capital": "Saint Helier",
-    "flag": "/flags/je.svg"
+    "flag": "/flags/je.svg",
+    "island": true
   },
   "Russia": {
     "capital": "Moscow",
@@ -101,7 +108,8 @@
   },
   "French Polynesia": {
     "capital": "Papeetē",
-    "flag": "/flags/pf.svg"
+    "flag": "/flags/pf.svg",
+    "island": true
   },
   "Djibouti": {
     "capital": "Djibouti",
@@ -113,15 +121,18 @@
   },
   "United States Virgin Islands": {
     "capital": "Charlotte Amalie",
-    "flag": "/flags/vi.svg"
+    "flag": "/flags/vi.svg",
+    "island": true
   },
   "Aruba": {
     "capital": "Oranjestad",
-    "flag": "/flags/aw.svg"
+    "flag": "/flags/aw.svg",
+    "island": true
   },
   "Saint Helena": {
     "capital": "Jamestown",
-    "flag": "/flags/sh.svg"
+    "flag": "/flags/sh.svg",
+    "island": true
   },
   "South Africa": {
     "capital": "Pretoria",
@@ -133,7 +144,8 @@
   },
   "São Tomé and Principe": {
     "capital": "São Tomé",
-    "flag": "/flags/st.svg"
+    "flag": "/flags/st.svg",
+    "island": true
   },
   "Burundi": {
     "capital": "Gitega",
@@ -149,7 +161,8 @@
   },
   "Guam": {
     "capital": "Hagåtña",
-    "flag": "/flags/gu.svg"
+    "flag": "/flags/gu.svg",
+    "island": true
   },
   "Jordan": {
     "capital": "Amman",
@@ -157,7 +170,8 @@
   },
   "Northern Mariana Islands": {
     "capital": "Saipan",
-    "flag": "/flags/mp.svg"
+    "flag": "/flags/mp.svg",
+    "island": true
   },
   "Equatorial Guinea": {
     "capital": "Malabo",
@@ -165,11 +179,13 @@
   },
   "Marshall Islands": {
     "capital": "Majuro",
-    "flag": "/flags/mh.svg"
+    "flag": "/flags/mh.svg",
+    "island": true
   },
   "Niue": {
     "capital": "Alofi",
-    "flag": "/flags/nu.svg"
+    "flag": "/flags/nu.svg",
+    "island": true
   },
   "Spain": {
     "capital": "Madrid",
@@ -185,7 +201,8 @@
   },
   "Samoa": {
     "capital": "Apia",
-    "flag": "/flags/ws.svg"
+    "flag": "/flags/ws.svg",
+    "island": true
   },
   "Malawi": {
     "capital": "Lilongwe",
@@ -209,7 +226,8 @@
   },
   "Pitcairn Islands": {
     "capital": "Adamstown",
-    "flag": "/flags/pn.svg"
+    "flag": "/flags/pn.svg",
+    "island": true
   },
   "Slovenia": {
     "capital": "Ljubljana",
@@ -237,7 +255,8 @@
   },
   "Kiribati": {
     "capital": "South Tarawa",
-    "flag": "/flags/ki.svg"
+    "flag": "/flags/ki.svg",
+    "island": true
   },
   "United Republic of Tanzania": {
     "capital": "Dodoma",
@@ -253,7 +272,8 @@
   },
   "Federated States of Micronesia": {
     "capital": "Palikir",
-    "flag": "/flags/fm.svg"
+    "flag": "/flags/fm.svg",
+    "island": true
   },
   "Mongolia": {
     "capital": "Ulan Bator",
@@ -277,7 +297,8 @@
   },
   "Saint Lucia": {
     "capital": "Castries",
-    "flag": "/flags/lc.svg"
+    "flag": "/flags/lc.svg",
+    "island": true
   },
   "Guyana": {
     "capital": "Georgetown",
@@ -285,19 +306,23 @@
   },
   "Isle of Man": {
     "capital": "Douglas",
-    "flag": "/flags/im.svg"
+    "flag": "/flags/im.svg",
+    "island": true
   },
   "Faroe Islands": {
     "capital": "Tórshavn",
-    "flag": "/flags/fo.svg"
+    "flag": "/flags/fo.svg",
+    "island": true
   },
   "Saint Barthelemy": {
     "capital": "Gustavia",
-    "flag": "/flags/bl.svg"
+    "flag": "/flags/bl.svg",
+    "island": true
   },
   "Wallis and Futuna": {
     "capital": "Mata-Utu",
-    "flag": "/flags/wf.svg"
+    "flag": "/flags/wf.svg",
+    "island": true
   },
   "India": {
     "capital": "New Delhi",
@@ -309,7 +334,8 @@
   },
   "Sint Maarten": {
     "capital": "Philipsburg",
-    "flag": "/flags/sx.svg"
+    "flag": "/flags/sx.svg",
+    "island": true
   },
   "Democratic Republic of the Congo": {
     "capital": "Kinshasa",
@@ -329,7 +355,8 @@
   },
   "Maldives": {
     "capital": "Malé",
-    "flag": "/flags/mv.svg"
+    "flag": "/flags/mv.svg",
+    "island": true
   },
   "Republic of Serbia": {
     "capital": "Belgrade",
@@ -361,7 +388,8 @@
   },
   "Montserrat": {
     "capital": "Plymouth",
-    "flag": "/flags/ms.svg"
+    "flag": "/flags/ms.svg",
+    "island": true
   },
   "Bolivia": {
     "capital": "Sucre",
@@ -397,15 +425,18 @@
   },
   "Saint Kitts and Nevis": {
     "capital": "Basseterre",
-    "flag": "/flags/kn.svg"
+    "flag": "/flags/kn.svg",
+    "island": true
   },
   "Guernsey": {
     "capital": "St. Peter Port",
-    "flag": "/flags/gg.svg"
+    "flag": "/flags/gg.svg",
+    "island": true
   },
   "Mauritius": {
     "capital": "Port Louis",
-    "flag": "/flags/mu.svg"
+    "flag": "/flags/mu.svg",
+    "island": true
   },
   "Saudi Arabia": {
     "capital": "Riyadh",
@@ -413,7 +444,8 @@
   },
   "Curaçao": {
     "capital": "Willemstad",
-    "flag": "/flags/cw.svg"
+    "flag": "/flags/cw.svg",
+    "island": true
   },
   "Benin": {
     "capital": "Porto-Novo",
@@ -425,11 +457,13 @@
   },
   "British Indian Ocean Territory": {
     "capital": "Diego Garcia",
-    "flag": "/flags/io.svg"
+    "flag": "/flags/io.svg",
+    "island": true
   },
   "Tuvalu": {
     "capital": "Funafuti",
-    "flag": "/flags/tv.svg"
+    "flag": "/flags/tv.svg",
+    "island": true
   },
   "Greenland": {
     "capital": "Nuuk",
@@ -437,7 +471,8 @@
   },
   "Cabo Verde": {
     "capital": "Praia",
-    "flag": "/flags/cv.svg"
+    "flag": "/flags/cv.svg",
+    "island": true
   },
   "Uzbekistan": {
     "capital": "Tashkent",
@@ -489,7 +524,8 @@
   },
   "Dominica": {
     "capital": "Roseau",
-    "flag": "/flags/dm.svg"
+    "flag": "/flags/dm.svg",
+    "island": true
   },
   "Estonia": {
     "capital": "Tallinn",
@@ -509,7 +545,8 @@
   },
   "Norfolk Island": {
     "capital": "Kingston",
-    "flag": "/flags/nf.svg"
+    "flag": "/flags/nf.svg",
+    "island": true
   },
   "Canada": {
     "capital": "Ottawa",
@@ -517,7 +554,8 @@
   },
   "French Southern and Antarctic Lands": {
     "capital": "Port-aux-Français",
-    "flag": "/flags/tf.svg"
+    "flag": "/flags/tf.svg",
+    "island": true
   },
   "Paraguay": {
     "capital": "Asunción",
@@ -541,11 +579,13 @@
   },
   "Comoros": {
     "capital": "Moroni",
-    "flag": "/flags/km.svg"
+    "flag": "/flags/km.svg",
+    "island": true
   },
   "Antigua and Barbuda": {
     "capital": "Saint John's",
-    "flag": "/flags/ag.svg"
+    "flag": "/flags/ag.svg",
+    "island": true
   },
   "Bulgaria": {
     "capital": "Sofia",
@@ -553,7 +593,8 @@
   },
   "Falkland Islands": {
     "capital": "Stanley",
-    "flag": "/flags/fk.svg"
+    "flag": "/flags/fk.svg",
+    "island": true
   },
   "Honduras": {
     "capital": "Tegucigalpa",
@@ -565,7 +606,8 @@
   },
   "Saint Pierre and Miquelon": {
     "capital": "Saint-Pierre",
-    "flag": "/flags/pm.svg"
+    "flag": "/flags/pm.svg",
+    "island": true
   },
   "Ethiopia": {
     "capital": "Addis Ababa",
@@ -593,11 +635,13 @@
   },
   "Cyprus": {
     "capital": "Nicosia",
-    "flag": "/flags/cy.svg"
+    "flag": "/flags/cy.svg",
+    "island": true
   },
   "Vanuatu": {
     "capital": "Port Vila",
-    "flag": "/flags/vu.svg"
+    "flag": "/flags/vu.svg",
+    "island": true
   },
   "Portugal": {
     "capital": "Lisbon",
@@ -621,11 +665,13 @@
   },
   "Saint Vincent and the Grenadines": {
     "capital": "Kingstown",
-    "flag": "/flags/vc.svg"
+    "flag": "/flags/vc.svg",
+    "island": true
   },
   "Saint Martin": {
     "capital": "Marigot",
-    "flag": "/flags/mf.svg"
+    "flag": "/flags/mf.svg",
+    "island": true
   },
   "Liberia": {
     "capital": "Monrovia",
@@ -633,7 +679,8 @@
   },
   "Hong Kong S.A.R.": {
     "capital": "City of Victoria",
-    "flag": "/flags/hk.svg"
+    "flag": "/flags/hk.svg",
+    "island": true
   },
   "Guatemala": {
     "capital": "Guatemala City",
@@ -653,7 +700,8 @@
   },
   "Seychelles": {
     "capital": "Victoria",
-    "flag": "/flags/sc.svg"
+    "flag": "/flags/sc.svg",
+    "island": true
   },
   "Zambia": {
     "capital": "Lusaka",
@@ -693,7 +741,8 @@
   },
   "Palau": {
     "capital": "Ngerulmud",
-    "flag": "/flags/pw.svg"
+    "flag": "/flags/pw.svg",
+    "island": true
   },
   "Bosnia and Herzegovina": {
     "capital": "Sarajevo",
@@ -729,7 +778,8 @@
   },
   "Anguilla": {
     "capital": "The Valley",
-    "flag": "/flags/ai.svg"
+    "flag": "/flags/ai.svg",
+    "island": true
   },
   "Brunei": {
     "capital": "Bandar Seri Begawan",
@@ -753,7 +803,8 @@
   },
   "Grenada": {
     "capital": "St. George's",
-    "flag": "/flags/gd.svg"
+    "flag": "/flags/gd.svg",
+    "island": true
   },
   "Bahrain": {
     "capital": "Manama",
@@ -797,7 +848,8 @@
   },
   "Bermuda": {
     "capital": "Hamilton",
-    "flag": "/flags/bm.svg"
+    "flag": "/flags/bm.svg",
+    "island": true
   },
   "Nicaragua": {
     "capital": "Managua",
@@ -805,11 +857,13 @@
   },
   "Aland": {
     "capital": "Mariehamn",
-    "flag": "/flags/ax.svg"
+    "flag": "/flags/ax.svg",
+    "island": true
   },
   "The Bahamas": {
     "capital": "Nassau",
-    "flag": "/flags/bs.svg"
+    "flag": "/flags/bs.svg",
+    "island": true
   },
   "Oman": {
     "capital": "Muscat",
@@ -841,7 +895,8 @@
   },
   "Barbados": {
     "capital": "Bridgetown",
-    "flag": "/flags/bb.svg"
+    "flag": "/flags/bb.svg",
+    "island": true
   },
   "Belarus": {
     "capital": "Minsk",
@@ -849,7 +904,8 @@
   },
   "East Timor": {
     "capital": "Dili",
-    "flag": "/flags/tl.svg"
+    "flag": "/flags/tl.svg",
+    "island": true
   },
   "Uganda": {
     "capital": "Kampala",
@@ -877,11 +933,13 @@
   },
   "Cayman Islands": {
     "capital": "George Town",
-    "flag": "/flags/ky.svg"
+    "flag": "/flags/ky.svg",
+    "island": true
   },
   "Cook Islands": {
     "capital": "Avarua",
-    "flag": "/flags/ck.svg"
+    "flag": "/flags/ck.svg",
+    "island": true
   },
   "Antarctica": {
     "capital": "—",
@@ -897,23 +955,22 @@
   },
   "Trinidad and Tobago": {
     "capital": "Port of Spain",
-    "flag": "/flags/tt.svg"
+    "flag": "/flags/tt.svg",
+    "island": true
   },
   "Colombia": {
     "capital": "Bogotá",
     "flag": "/flags/co.svg"
   },
-  "Vatican": {
-    "capital": "Vatican City",
-    "flag": "/flags/va.svg"
-  },
   "Heard Island and McDonald Islands": {
     "capital": "—",
-    "flag": "/flags/hm.svg"
+    "flag": "/flags/hm.svg",
+    "island": true
   },
   "Macao S.A.R": {
     "capital": "—",
-    "flag": "/flags/mo.svg"
+    "flag": "/flags/mo.svg",
+    "island": true
   },
   "Mexico": {
     "capital": "Mexico City",
@@ -921,11 +978,13 @@
   },
   "New Caledonia": {
     "capital": "Nouméa",
-    "flag": "/flags/nc.svg"
+    "flag": "/flags/nc.svg",
+    "island": true
   },
   "Solomon Islands": {
     "capital": "Honiara",
-    "flag": "/flags/sb.svg"
+    "flag": "/flags/sb.svg",
+    "island": true
   },
   "Kosovo": {
     "capital": "Pristina",
@@ -933,11 +992,13 @@
   },
   "Nauru": {
     "capital": "Yaren",
-    "flag": "/flags/nr.svg"
+    "flag": "/flags/nr.svg",
+    "island": true
   },
   "Tonga": {
     "capital": "Nuku'alofa",
-    "flag": "/flags/to.svg"
+    "flag": "/flags/to.svg",
+    "island": true
   },
   "Malaysia": {
     "capital": "Kuala Lumpur",
@@ -945,14 +1006,17 @@
   },
   "Fiji": {
     "capital": "Suva",
-    "flag": "/flags/fj.svg"
+    "flag": "/flags/fj.svg",
+    "island": true
   },
   "Jamaica": {
     "capital": "Kingston",
-    "flag": "/flags/jm.svg"
+    "flag": "/flags/jm.svg",
+    "island": true
   },
   "United States Minor Outlying Islands": {
     "capital": "Washington DC",
-    "flag": "/flags/um.svg"
+    "flag": "/flags/um.svg",
+    "island": true
   }
 }

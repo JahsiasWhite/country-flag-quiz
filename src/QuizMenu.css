@@ -17,7 +17,6 @@
 .quiz-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 20px;
 }
 
@@ -25,6 +24,10 @@
   margin: 0;
   font-size: 24px;
   font-weight: 700;
+}
+
+.quiz-header span {
+  margin-left: auto;
 }
 
 .help-button {

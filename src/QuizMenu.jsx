@@ -19,8 +19,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   // Quiz Configuration
   const [quizType, setQuizType] = useState('flag');
   const [quizLength, setQuizLength] = useState(10);
-  const [difficulty, setDifficulty] = useState('medium');
-  const [timeLimit, setTimeLimit] = useState(30); // seconds per question
+  const [ignoreIslands, setIgnoreIslands] = useState(false);
 
   // Quiz State
   const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +41,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   const [feedback, setFeedback] = useState('');
   const [feedbackType, setFeedbackType] = useState(''); // 'correct', 'incorrect', 'timeout'
   const [showFeedback, setShowFeedback] = useState(false);
-  // const [showNextButton, setShowNextButton] = useState(false);
 
   // Refs
   const timerRef = useRef(null);
@@ -64,7 +62,12 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
   // Generate question based on type
   function generateProblemSet() {
-    const countryNames = Object.keys(countryMeta);
+    let countryNames = Object.keys(countryMeta);
+
+    // Remove islands if wanted
+    if (ignoreIslands) {
+      countryNames = countryNames.filter((name) => !countryMeta[name].island);
+    }
 
     // shuffle the array
     const shuffled = [...countryNames].sort(() => Math.random() - 0.5);
@@ -135,7 +138,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setFeedbackType('timeout');
     setFeedback(`⏰ Time's up! The answer was ${question.country}`);
     setShowFeedback(true);
-    // setShowNextButton(true);
 
     // Flash the correct country red
     highlightCountry(question.country, BORDER_LINE_COLOR_WRONG);
@@ -192,7 +194,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
         }`
       );
       setShowFeedback(true);
-      // setShowNextButton(true); // TODO: Is this necessary?
 
       highlightCountry(correctCountry, BORDER_LINE_COLOR_CORRECT);
 
@@ -396,7 +397,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
 
     // clearAllCountryColors(); // TODO: Just unlight the incorrect ones
     setShowFeedback(false);
-    // setShowNextButton(false);
     quizRef.questionNumber++;
     startNewQuestion();
   }
@@ -518,7 +518,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                 justifyContent: 'space-between',
               }}
             >
-              <h2>🌍 World Quiz</h2>
+              <h2>World Quiz</h2>
               <button
                 onClick={() => setShowTutorial(true)}
                 className="help-button"
@@ -572,6 +572,17 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                     <option value={50}>50 Questions</option>
                     <option value="all">All Countries</option>
                   </select>
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={ignoreIslands}
+                      onChange={(e) => setIgnoreIslands(e.target.checked)}
+                    />
+                    Ignore Small Islands
+                  </label>
                 </div>
 
                 <button onClick={startQuiz} className="start-button">
@@ -646,11 +657,9 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
                 📍 Find Location
               </button>
 
-              {/* {showNextButton && ( */}
               <button onClick={nextQuestion} className="next-button">
                 ➡️ Next Question
               </button>
-              {/* )} */}
 
               <button onClick={endQuiz} className="end-button">
                 🏁 End

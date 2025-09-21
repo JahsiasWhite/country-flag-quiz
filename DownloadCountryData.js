@@ -34,15 +34,31 @@ async function main() {
     const flagPath = `/flags/${iso2}.svg`;
 
     try {
-      await downloadSVG(c.flags.svg, path.join(FLAGS_DIR, `${iso2}.svg`));
+      // await downloadSVG(c.flags.svg, path.join(FLAGS_DIR, `${iso2}.svg`));
       console.log(`Downloaded flag for ${name}`);
     } catch (err) {
       console.error(`Failed to download flag for ${name}: ${err.message}`);
     }
 
-    const countryData = { name, capital, flag: flagPath };
+    // TODO: Better island detection
+    const isIsland =
+      name.toLowerCase().includes('island') ||
+      [
+        'Iceland',
+        'Madagascar',
+        'Sri Lanka',
+        'Japan',
+        'Philippines',
+        'New Zealand',
+        'Cuba',
+        'Haiti',
+        'Bahamas',
+        'Maldives',
+      ].includes(name);
+
+    const countryData = { name, capital, flag: flagPath, island: isIsland };
     arrayOutput.push(countryData);
-    mapOutput[name] = { capital, flag: flagPath };
+    mapOutput[name] = { capital, flag: flagPath, island: isIsland };
   }
 
   fs.writeFileSync(

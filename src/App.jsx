@@ -11,6 +11,7 @@ import {
   BORDER_LINE_COLOR,
   FULL_BRIGHTNESS,
   WIKI_TITLE_OVERRIDES,
+  BACKGROUND_COLOR,
 } from './constants.js';
 
 function lonLatToVec3(lon, lat, radius) {
@@ -109,7 +110,7 @@ export default function GlobeWikipediaApp() {
   useEffect(() => {
     const mount = mountRef.current;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020617);
+    scene.background = new THREE.Color(BACKGROUND_COLOR);
 
     // const cube = new THREE.Mesh(
     //   new THREE.BoxGeometry(1, 1, 1),
