@@ -404,6 +404,11 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   function endQuiz() {
     setQuizMode(false);
     setQuizQuestion(null);
+
+    setFeedbackType('');
+    setFeedback(``);
+    setShowFeedback(false);
+
     clearAllCountryColors();
     if (timerRef.current) {
       clearInterval(timerRef.current);
