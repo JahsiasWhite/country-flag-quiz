@@ -41,6 +41,10 @@ npm i
 npm run dev
 ```
 
+```bash
+npm run build
+```
+
 ## Sources
 
 This project fetches border data from the geo-countries dataset. All country data and earth textures are installed locally.
