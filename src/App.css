@@ -53,7 +53,7 @@ input {
     /* move to bottom center */
     left: 50% !important;
     transform: translateX(-50%) !important;
-    bottom: 5% !important;
+    bottom: 10% !important;
     top: auto !important;
   }
 }

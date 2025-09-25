@@ -136,10 +136,22 @@ export default function GlobeWikipediaApp() {
     controls.enablePan = true;
     controls.minDistance = 2.2;
     controls.maxDistance = 8;
-    // controls.target.set(0, 1, 0); // This makes globe appear lower
 
     // TODO: TESTING FOR MOBILE
     controls.panSpeed = 0.5;
+    controls.rotateSpeed = 0.8;
+    function updateControlSpeeds() {
+      // scale speeds depending on distance (closer = slower)
+      const distance = camera.position.length();
+      const scale = THREE.MathUtils.clamp(
+        distance / controls.maxDistance,
+        0.3,
+        1
+      );
+
+      controls.rotateSpeed = 0.8 * scale;
+      controls.panSpeed = 0.5 * scale;
+    }
 
     // Function to move camera to a specific country
     const moveCameraToCountry = (lat, lon) => {
@@ -577,6 +589,7 @@ export default function GlobeWikipediaApp() {
 
     let raf;
     const animate = () => {
+      updateControlSpeeds();
       controls.update();
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
@@ -599,7 +612,7 @@ export default function GlobeWikipediaApp() {
     <div
       style={{
         width: '100%',
-        height: '100%',
+        height: '97%',
         position: 'relative',
         fontFamily: 'sans-serif',
       }}
