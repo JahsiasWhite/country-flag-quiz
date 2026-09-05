@@ -9,13 +9,15 @@ import * as THREE from 'three';
 import {
   BORDER_LINE_COLOR,
   BORDER_LINE_COLOR_CORRECT,
-  BORDER_LINE_COLOR_PARTIAL,
   BORDER_LINE_COLOR_WRONG,
   QUESTION_TYPES,
 } from './constants';
+import { getCountryFocus } from './geoUtils';
 import './QuizMenu.css';
 
-const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
+const HIGHLIGHT_FLASH_MS = 3000;
+
+const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
   // Quiz Configuration
   const [quizType, setQuizType] = useState('flag');
   const [quizLength, setQuizLength] = useState(10);
@@ -140,7 +142,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
     setShowFeedback(true);
 
     // Flash the correct country red
-    highlightCountry(question.country, BORDER_LINE_COLOR_WRONG);
+    highlightCountry(question.country, BORDER_LINE_COLOR_WRONG, { flash: true });
     findLocation();
 
     // Add to history
@@ -195,6 +197,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       );
       setShowFeedback(true);
 
+      clearAllCountryColors();
       highlightCountry(correctCountry, BORDER_LINE_COLOR_CORRECT);
 
       // Add to history
@@ -217,7 +220,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       setFeedback(`❌ ${clickedCountry} is wrong! Try again...`);
       setShowFeedback(true);
 
-      highlightCountry(clickedCountry, BORDER_LINE_COLOR_WRONG);
+      highlightCountry(clickedCountry, BORDER_LINE_COLOR_WRONG, { flash: true });
 
       // setTimeout(() => {
       //   setShowFeedback(false);
@@ -247,132 +250,185 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   }
 
   function findLocation() {
-    console.log('Showing location');
     if (!quizRef.current) return;
 
-    // Find the country in the features data to get its coordinates
-    const features = stateRef.current.features;
-    if (!features) return;
-
-    let countryName = quizRef.current.country;
-
-    // Identical flags
-    if (countryName === 'United States Minor Outlying Islands') {
-      countryName = 'United States of America';
-    }
-
-    const countryFeature = features.find(
-      (item) => item.feature.name === countryName
-    );
-    if (!countryFeature || !countryFeature.feature.geometry) return;
+    const countryName = quizRef.current.country;
+    const countryFeature = stateRef.current.countriesByName?.[countryName];
+    if (!countryFeature?.geometry) return;
 
     quizRef.current.usedHint = true;
 
-    const geom = countryFeature.feature.geometry;
-
-    // Calculate center of country for camera positioning
-    let centerLon = 0,
-      centerLat = 0,
-      pointCount = 0;
-
-    if (geom.type === 'Polygon') {
-      const coords = geom.coordinates[0]; // Use outer ring
-      coords.forEach(([lon, lat]) => {
-        centerLon += lon;
-        centerLat += lat;
-        pointCount++;
-      });
-    } else if (geom.type === 'MultiPolygon') {
-      geom.coordinates.forEach((poly) => {
-        poly[0].forEach(([lon, lat]) => {
-          centerLon += lon;
-          centerLat += lat;
-          pointCount++;
-        });
-      });
+    const focus = getCountryFocus(countryFeature.geometry);
+    if (focus && stateRef.current.moveCameraToCountry) {
+      stateRef.current.moveCameraToCountry(
+        focus.lat,
+        focus.lon,
+        focus.spanDeg
+      );
     }
 
-    if (pointCount > 0) {
-      centerLon /= pointCount;
-      centerLat /= pointCount;
-
-      // Call parent function to move camera
-      if (stateRef.current.moveCameraToCountry) {
-        stateRef.current.moveCameraToCountry(centerLat, centerLon);
-      }
-
-      // TODO Flash the correct country red
-      // highlightCountry(countryName, BORDER_LINE_COLOR_WRONG);
-    }
+    highlightCountry(countryName, BORDER_LINE_COLOR_WRONG, { flash: true });
   }
 
   // Utility functions
-  function clearAllCountryColors() {
-    const hg = stateRef.current.highlightGroup;
-    if (!hg) return;
-
-    // dispose meshes/materials to avoid leaks
-    for (let i = hg.children.length - 1; i >= 0; i--) {
-      const child = hg.children[i];
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
-      hg.remove(child);
+  function clearHighlightAnim(name) {
+    const anims = stateRef.current.highlightAnims;
+    if (anims?.[name]) {
+      anims[name].cancelled = true;
+      delete anims[name];
     }
-    // optional: track map if you add per-country caches
-    stateRef.current.highlightMeshes = {};
   }
 
-  function highlightCountry(name, color = BORDER_LINE_COLOR_CORRECT) {
-    const entry = stateRef.current.countryLines?.[name];
+  function paintVertexIndices(vertexIndices, color) {
     const geom = stateRef.current.bordersGeometry;
-    const hg = stateRef.current.highlightGroup;
-    if (!entry || !geom || !hg) return;
+    if (!geom || !vertexIndices?.length) return;
+    const colors = geom.getAttribute('color');
+    if (!colors) return;
+    const c = color.isColor ? color : new THREE.Color(color);
+    for (const i of vertexIndices) {
+      colors.setXYZ(i, c.r, c.g, c.b);
+    }
+    colors.needsUpdate = true;
+  }
 
-    const { start, count } = entry; // count = number of vertices in segments
-    const pos = geom.getAttribute('position');
-
-    // copy just this country’s segment vertices into a new geometry
-    const arr = new Float32Array(count * 3);
-    let j = 0;
-    for (let i = start; i < start + count; i++) {
-      arr[j++] = pos.getX(i);
-      arr[j++] = pos.getY(i);
-      arr[j++] = pos.getZ(i);
+  /** Recolor this country and every shared-border copy from neighbors. */
+  function getCountryBorderVertices(name) {
+    const keys = stateRef.current.countryEdgeKeys?.[name];
+    const edgeIndex = stateRef.current.borderEdgeIndex;
+    if (!keys || !edgeIndex) {
+      // Fallback: only this country's own segments
+      const entry = stateRef.current.countryLines?.[name];
+      if (!entry) return [];
+      const verts = [];
+      for (let i = entry.start; i < entry.start + entry.count; i++) verts.push(i);
+      return verts;
     }
 
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-
-    // draw on top of the base borders
-    const mat = new THREE.LineBasicMaterial({
-      color,
-      transparent: false,
-      opacity: 1.0,
-      depthTest: true, // ignore depth so it always shows
-      depthWrite: false, // don’t affect depth buffer
-    });
-
-    const mesh = new THREE.LineSegments(g, mat);
-    mesh.renderOrder = 1000; // above base + group
-    hg.add(mesh);
-
-    // (optional) keep track if you want to un-highlight a single country later
-    if (!stateRef.current.highlightMeshes)
-      stateRef.current.highlightMeshes = {};
-    stateRef.current.highlightMeshes[name] = mesh;
+    const verts = [];
+    const seen = new Set();
+    for (const key of keys) {
+      for (const segStart of edgeIndex.get(key) || []) {
+        if (seen.has(segStart)) continue;
+        seen.add(segStart);
+        verts.push(segStart, segStart + 1);
+      }
+    }
+    return verts;
   }
+
+  function setCountryBorderColor(name, color) {
+    const verts = getCountryBorderVertices(name);
+    if (!verts.length) return null;
+    paintVertexIndices(verts, color);
+    return verts;
+  }
+
+  function reapplyPaintedBorders() {
+    const painted = stateRef.current.paintedBorders;
+    if (!painted) return;
+    // Solid highlights last so they win on shared edges
+    const entries = Object.entries(painted);
+    entries.sort((a, b) => Number(a[1].flash) - Number(b[1].flash));
+    for (const [name, info] of entries) {
+      const verts = setCountryBorderColor(name, info.color);
+      if (verts) info.vertices = verts;
+    }
+  }
+
+  function clearAllCountryColors() {
+    const anims = stateRef.current.highlightAnims;
+    if (anims) {
+      for (const anim of Object.values(anims)) anim.cancelled = true;
+      stateRef.current.highlightAnims = {};
+    }
+
+    const painted = stateRef.current.paintedBorders;
+    if (painted) {
+      const white = new THREE.Color(BORDER_LINE_COLOR);
+      for (const info of Object.values(painted)) {
+        if (info.vertices) paintVertexIndices(info.vertices, white);
+      }
+      stateRef.current.paintedBorders = {};
+    }
+  }
+
+  function highlightCountry(name, color = BORDER_LINE_COLOR_CORRECT, { flash = false } = {}) {
+    clearHighlightAnim(name);
+
+    const verts = setCountryBorderColor(name, color);
+    if (!verts) return;
+
+    if (!stateRef.current.paintedBorders) stateRef.current.paintedBorders = {};
+    stateRef.current.paintedBorders[name] = { color, vertices: verts, flash };
+
+    // Correct answers stay solid green until cleared
+    if (!flash) return;
+
+    // Wrong guesses: flash red, then ease gently back to white (no hard cut)
+    const red = new THREE.Color(BORDER_LINE_COLOR_WRONG);
+    const white = new THREE.Color(BORDER_LINE_COLOR);
+    const mix = new THREE.Color();
+
+    if (!stateRef.current.highlightAnims) stateRef.current.highlightAnims = {};
+    const anim = { cancelled: false };
+    stateRef.current.highlightAnims[name] = anim;
+
+    const startTime = performance.now();
+    const tick = (now) => {
+      if (anim.cancelled) return;
+
+      const t = Math.min((now - startTime) / HIGHLIGHT_FLASH_MS, 1);
+      const info = stateRef.current.paintedBorders?.[name];
+      const vertices = info?.vertices || verts;
+
+      // Continuous strength: 1 = full red, 0 = white. Phases meet at the same value.
+      let strength;
+      if (t < 0.12) {
+        const u = t / 0.12;
+        strength = u * u * (3 - 2 * u); // smoothstep in → 1
+      } else if (t < 0.38) {
+        const u = (t - 0.12) / 0.26;
+        // cos starts/ends at 1 so this joins cleanly with ease-in and fade
+        strength = 0.7 + 0.3 * Math.cos(u * Math.PI * 4);
+      } else {
+        const u = (t - 0.38) / 0.62;
+        // Slow ease-out to white (most of the animation)
+        strength = Math.pow(1 - u, 2.75);
+      }
+
+      mix.copy(white).lerp(red, Math.max(0, strength));
+      paintVertexIndices(vertices, mix);
+
+      if (t >= 1) {
+        // Already at white — clean up without a color snap
+        clearHighlightAnim(name);
+        if (stateRef.current.paintedBorders) {
+          delete stateRef.current.paintedBorders[name];
+        }
+        reapplyPaintedBorders();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
   function unhighlightCountry(name) {
-    const hg = stateRef.current.highlightGroup;
-    const mesh = stateRef.current.highlightMeshes?.[name];
-    if (!hg || !mesh) return;
-    if (mesh.geometry) mesh.geometry.dispose();
-    if (mesh.material) mesh.material.dispose();
-    hg.remove(mesh);
-    delete stateRef.current.highlightMeshes[name];
+    clearHighlightAnim(name);
+    const info = stateRef.current.paintedBorders?.[name];
+    if (info?.vertices) {
+      paintVertexIndices(info.vertices, BORDER_LINE_COLOR);
+    }
+    if (stateRef.current.paintedBorders) {
+      delete stateRef.current.paintedBorders[name];
+    }
+    // Restore any remaining highlights that shared edges with this country
+    reapplyPaintedBorders();
   }
 
   // Quiz control functions
   function startQuiz() {
+    onQuizStart?.();
     setQuizMode(true);
     setScore(0);
     setTotalAttempts(0);
@@ -395,7 +451,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
   function nextQuestion() {
     setTotalAttempts((prev) => prev + 1); // TODO: Is question.attempts still used/needed??
 
-    // clearAllCountryColors(); // TODO: Just unlight the incorrect ones
+    clearAllCountryColors();
     setShowFeedback(false);
     quizRef.questionNumber++;
     startNewQuestion();
@@ -423,8 +479,28 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      const anims = stateRef.current.highlightAnims;
+      if (anims) {
+        for (const anim of Object.values(anims)) anim.cancelled = true;
+        stateRef.current.highlightAnims = {};
+      }
+      const painted = stateRef.current.paintedBorders;
+      if (painted) {
+        const white = new THREE.Color(BORDER_LINE_COLOR);
+        const geom = stateRef.current.bordersGeometry;
+        const colors = geom?.getAttribute('color');
+        if (colors) {
+          for (const info of Object.values(painted)) {
+            for (const i of info.vertices || []) {
+              colors.setXYZ(i, white.r, white.g, white.b);
+            }
+          }
+          colors.needsUpdate = true;
+        }
+        stateRef.current.paintedBorders = {};
+      }
     };
-  }, []);
+  }, [stateRef]);
 
   useImperativeHandle(ref, () => ({
     handleGlobeClick,
@@ -671,11 +747,6 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
               </button>
             </div>
 
-            {/* Feedback */}
-            {showFeedback && (
-              <div className={`feedback ${feedbackType}`}>{feedback}</div>
-            )}
-
             {/* Stats */}
             <div className="stats-grid">
               <div>
@@ -688,6 +759,12 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef }, ref) => {
           </div>
         )}
       </div>
+
+      {showFeedback && (
+        <div className="feedback-overlay" aria-live="polite">
+          <div className={`feedback-toast ${feedbackType}`}>{feedback}</div>
+        </div>
+      )}
 
       {/* Quiz Summary Modal */}
       {showSummary && (

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import RBush from 'rbush';
 import './App.css';
 
@@ -13,6 +12,13 @@ import {
   WIKI_TITLE_OVERRIDES,
   BACKGROUND_COLOR,
 } from './constants.js';
+import {
+  MIN_HIT_SIZE_DEG,
+  expandBBox,
+  degDistance,
+  ringArea,
+  ringFocus,
+} from './geoUtils.js';
 
 function lonLatToVec3(lon, lat, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -55,28 +61,52 @@ function pointInMultiPolygon(point, multi) {
   return false;
 }
 
-// Compute bounding box for polygons
-function computeBBox(coords) {
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-
-  const processRing = (ring) => {
+// Bounding boxes for one polygon (array of rings). Splits at the antimeridian
+// so countries like Fiji/Kiribati don't cover the whole globe in the spatial index.
+function bboxesForPolygon(polygon) {
+  const lons = [];
+  const lats = [];
+  for (const ring of polygon) {
     for (const [x, y] of ring) {
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-  };
-
-  for (const poly of coords) {
-    for (const ring of poly) {
-      processRing(ring);
+      lons.push(x);
+      lats.push(y);
     }
   }
-  return [minX, minY, maxX, maxY];
+  if (!lons.length) return [];
+
+  const minY = Math.min(...lats);
+  const maxY = Math.max(...lats);
+  const minX = Math.min(...lons);
+  const maxX = Math.max(...lons);
+
+  if (maxX - minX <= 180) {
+    return [{ minX, minY, maxX, maxY }];
+  }
+
+  const east = lons.filter((l) => l >= 0);
+  const west = lons.filter((l) => l < 0);
+  const boxes = [];
+  if (east.length) {
+    boxes.push({
+      minX: Math.min(...east),
+      minY,
+      maxX: Math.max(...east),
+      maxY,
+    });
+  }
+  if (west.length) {
+    boxes.push({
+      minX: Math.min(...west),
+      minY,
+      maxX: Math.max(...west),
+      maxY,
+    });
+  }
+  return boxes;
+}
+
+function featureName(props = {}) {
+  return props.ADMIN || props.NAME || props.name || 'Unknown';
 }
 
 const fetchCache = new Map();
@@ -153,31 +183,55 @@ export default function GlobeWikipediaApp() {
       controls.panSpeed = 0.5 * scale;
     }
 
-    // Function to move camera to a specific country
-    const moveCameraToCountry = (lat, lon) => {
-      const targetPosition = lonLatToVec3(lon, lat, 4.5);
-      const currentPosition = camera.position.clone();
+    // Orbit the camera around the globe (never lerp through the center)
+    let cameraAnimId = 0;
+    const moveCameraToCountry = (lat, lon, spanDeg = 8) => {
+      // Smaller countries → closer zoom (respect minDistance)
+      const targetRadius = THREE.MathUtils.clamp(
+        2.35 + Math.log10(Math.max(spanDeg, 0.08) + 0.15) * 1.35,
+        controls.minDistance + 0.12,
+        4.2
+      );
+      const startPos = camera.position.clone();
+      const startDir = startPos.clone().normalize();
+      const endDir = lonLatToVec3(lon, lat, 1).normalize();
+      const startRadius = Math.max(startPos.length(), controls.minDistance);
 
-      // Animate camera movement
-      const duration = 2000; // 2 seconds
+      const angle = startDir.angleTo(endDir);
+      const duration = 800 + (angle / Math.PI) * 1600;
       const startTime = Date.now();
+      const animId = ++cameraAnimId;
+
+      // Rotation that takes startDir → endDir around the globe
+      const axis = new THREE.Vector3().crossVectors(startDir, endDir);
+      if (axis.lengthSq() < 1e-10) {
+        // Parallel or opposite — pick a stable perpendicular axis
+        axis
+          .crossVectors(startDir, new THREE.Vector3(0, 1, 0))
+          .normalize();
+        if (axis.lengthSq() < 1e-10) {
+          axis
+            .crossVectors(startDir, new THREE.Vector3(1, 0, 0))
+            .normalize();
+        }
+      } else {
+        axis.normalize();
+      }
+      const quat = new THREE.Quaternion();
 
       controls.enabled = false;
 
       const animateCamera = () => {
+        if (animId !== cameraAnimId) return;
+
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
+        const t = 1 - Math.pow(1 - progress, 3);
 
-        // Easing function for smooth movement
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-
-        camera.position.lerpVectors(
-          currentPosition,
-          targetPosition,
-          easeProgress
-        );
-
-        // Keep the target at the center of the globe
+        quat.setFromAxisAngle(axis, angle * t);
+        const dir = startDir.clone().applyQuaternion(quat);
+        const radius = THREE.MathUtils.lerp(startRadius, targetRadius, t);
+        camera.position.copy(dir.multiplyScalar(radius));
         controls.target.set(0, 0, 0);
 
         if (progress < 1) {
@@ -271,11 +325,34 @@ export default function GlobeWikipediaApp() {
       const colors = [];
       const defaultColor = new THREE.Color(BORDER_LINE_COLOR);
 
-      const addRing = (ring) => {
+      // Shared borders exist in both countries; index by lon/lat so highlighting
+      // can recolor every copy and win over neighboring white lines.
+      const borderEdgeIndex = new Map();
+      const countryEdgeKeys = {};
+      const quantizeLonLat = (v) => Math.round(v * 1000);
+      const edgeKeyLonLat = (lon1, lat1, lon2, lat2) => {
+        const a = `${quantizeLonLat(lon1)},${quantizeLonLat(lat1)}`;
+        const b = `${quantizeLonLat(lon2)},${quantizeLonLat(lat2)}`;
+        return a < b ? `${a}|${b}` : `${b}|${a}`;
+      };
+      const registerEdge = (name, lon1, lat1, lon2, lat2, vertexIndex) => {
+        const key = edgeKeyLonLat(lon1, lat1, lon2, lat2);
+        if (!countryEdgeKeys[name]) countryEdgeKeys[name] = new Set();
+        countryEdgeKeys[name].add(key);
+        let list = borderEdgeIndex.get(key);
+        if (!list) {
+          list = [];
+          borderEdgeIndex.set(key, list);
+        }
+        list.push(vertexIndex);
+      };
+
+      const addRing = (ring, countryName) => {
         for (let i = 0; i < ring.length - 1; i++) {
           const [lon1, lat1] = ring[i];
           const [lon2, lat2] = ring[i + 1];
 
+          const vertexIndex = segments.length / 3;
           const v1 = lonLatToVec3(lon1, lat1, R * 1.002);
           const v2 = lonLatToVec3(lon2, lat2, R * 1.002);
 
@@ -285,6 +362,8 @@ export default function GlobeWikipediaApp() {
           // push default color twice (for both vertices)
           colors.push(defaultColor.r, defaultColor.g, defaultColor.b);
           colors.push(defaultColor.r, defaultColor.g, defaultColor.b);
+
+          registerEdge(countryName, lon1, lat1, lon2, lat2, vertexIndex);
         }
       };
 
@@ -293,11 +372,7 @@ export default function GlobeWikipediaApp() {
         const geom = f.geometry;
         if (!geom) continue;
 
-        const name =
-          f.properties.ADMIN ||
-          f.properties.NAME ||
-          f.properties.name ||
-          'Unknown';
+        const name = featureName(f.properties);
 
         const coords = geom.coordinates;
         const type = geom.type;
@@ -306,13 +381,13 @@ export default function GlobeWikipediaApp() {
 
         if (type === 'Polygon') {
           for (const ring of coords) {
-            addRing(ring);
+            addRing(ring, name);
             vertexOffset += (ring.length - 1) * 2; // two vertices per segment
           }
         } else if (type === 'MultiPolygon') {
           for (const poly of coords) {
             for (const ring of poly) {
-              addRing(ring);
+              addRing(ring, name);
               vertexOffset += (ring.length - 1) * 2;
             }
           }
@@ -340,31 +415,64 @@ export default function GlobeWikipediaApp() {
       stateRef.current.countryLines = countryLines;
       stateRef.current.bordersGeometry = g;
       stateRef.current.bordersMesh = mergedLines;
+      stateRef.current.borderEdgeIndex = borderEdgeIndex;
+      stateRef.current.countryEdgeKeys = countryEdgeKeys;
 
-      // Build R-tree for hover detection
+      // Index each polygon separately (and split antimeridian bboxes) so overseas
+      // territories / dateline countries don't hijack clicks across the ocean.
       const tree = new RBush();
-      const items = features.map((f) => {
-        const props = f.properties || {};
-        const name = props.ADMIN || props.NAME || props.name || 'Unknown';
+      const items = [];
+      const countriesByName = {};
+
+      for (const f of features) {
         const geom = f.geometry;
-        let bbox = null;
-        if (geom) {
-          if (geom.type === 'Polygon') bbox = computeBBox([geom.coordinates]);
-          else if (geom.type === 'MultiPolygon')
-            bbox = computeBBox(geom.coordinates);
+        if (!geom) continue;
+        const name = featureName(f.properties);
+        countriesByName[name] = { name, geometry: geom };
+
+        const polys =
+          geom.type === 'Polygon'
+            ? [geom.coordinates]
+            : geom.type === 'MultiPolygon'
+              ? geom.coordinates
+              : [];
+
+        for (const poly of polys) {
+          const boxes = bboxesForPolygon(poly);
+          const outer = poly[0];
+          const area = ringArea(outer);
+          const focus = outer?.length ? ringFocus(outer) : null;
+          const naturalW = boxes.length
+            ? Math.max(...boxes.map((b) => b.maxX - b.minX))
+            : 0;
+          const naturalH = boxes.length
+            ? Math.max(...boxes.map((b) => b.maxY - b.minY))
+            : 0;
+          const isTiny =
+            area < 0.02 ||
+            (naturalW < MIN_HIT_SIZE_DEG && naturalH < MIN_HIT_SIZE_DEG);
+          const polyFeature = {
+            name,
+            geometry: { type: 'Polygon', coordinates: poly },
+          };
+          for (const box of boxes) {
+            const padded = isTiny ? expandBBox(box) : box;
+            const item = {
+              ...padded,
+              feature: polyFeature,
+              isTiny,
+              center: focus ? [focus.lon, focus.lat] : null,
+              hitRadius: MIN_HIT_SIZE_DEG / 2,
+              polyArea: area,
+            };
+            tree.insert(item);
+            items.push(item);
+          }
         }
-        const item = {
-          minX: bbox ? bbox[0] : 0,
-          minY: bbox ? bbox[1] : 0,
-          maxX: bbox ? bbox[2] : 0,
-          maxY: bbox ? bbox[3] : 0,
-          feature: { name, geometry: geom },
-        };
-        tree.insert(item);
-        return item;
-      });
+      }
 
       stateRef.current.features = items;
+      stateRef.current.countriesByName = countriesByName;
       stateRef.current.tree = tree;
 
       // Create country labels
@@ -375,7 +483,10 @@ export default function GlobeWikipediaApp() {
       setStatus('Ready');
     };
 
-    fetchBorders().catch((e) => console.error(`Error: ${e.message}`));
+    fetchBorders().catch((e) => {
+      console.error(`Error: ${e.message}`);
+      setStatus('Failed to load borders');
+    });
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -457,6 +568,8 @@ export default function GlobeWikipediaApp() {
     }
 
     function hitCountry(point, tree) {
+      if (!tree) return null;
+
       const [lon, lat] = point;
       const candidates = tree.search({
         minX: lon,
@@ -465,18 +578,40 @@ export default function GlobeWikipediaApp() {
         maxY: lat,
       });
 
+      // Prefer exact polygon hits, smallest first (e.g. Lesotho over South Africa)
+      let best = null;
+      let bestArea = Infinity;
+
       for (const item of candidates) {
         const geom = item.feature.geometry;
         if (!geom) continue;
-        if (geom.type === 'Polygon' && pointInPolygon(point, geom.coordinates))
-          return item.feature;
-        if (
-          geom.type === 'MultiPolygon' &&
-          pointInMultiPolygon(point, geom.coordinates)
-        )
-          return item.feature;
+        const inside =
+          (geom.type === 'Polygon' &&
+            pointInPolygon(point, geom.coordinates)) ||
+          (geom.type === 'MultiPolygon' &&
+            pointInMultiPolygon(point, geom.coordinates));
+        if (!inside) continue;
+
+        const area = item.polyArea ?? (item.maxX - item.minX) * (item.maxY - item.minY);
+        if (area < bestArea) {
+          bestArea = area;
+          best = item.feature;
+        }
       }
-      return null;
+      if (best) return best;
+
+      // Fallback: expanded hit targets for microstates / tiny islands
+      let bestTiny = null;
+      let bestDist = Infinity;
+      for (const item of candidates) {
+        if (!item.isTiny || !item.center) continue;
+        const dist = degDistance(point, item.center);
+        if (dist <= item.hitRadius && dist < bestDist) {
+          bestDist = dist;
+          bestTiny = item.feature;
+        }
+      }
+      return bestTiny;
     }
 
     async function updateHover(feature, screenPos) {
@@ -548,22 +683,22 @@ export default function GlobeWikipediaApp() {
 
         const feature = hitCountry(point, stateRef.current.tree);
         if (feature) {
-          quizRef.current.handleGlobeClick(feature.name);
+          quizRef.current?.handleGlobeClick(feature.name);
         }
       }
     }
 
     /* Mobile Stuff */
     let touchStartPos = { x: 0, y: 0 };
-    // Touch start
     function onTouchStart(ev) {
       const touch = ev.touches[0];
+      if (!touch) return;
       touchStartPos = { x: touch.clientX, y: touch.clientY };
       isDragging = false;
     }
-    // Touch move
     function onTouchMove(ev) {
       const touch = ev.touches[0];
+      if (!touch) return;
       if (
         Math.abs(touch.clientX - touchStartPos.x) > 2 ||
         Math.abs(touch.clientY - touchStartPos.y) > 2
@@ -571,15 +706,18 @@ export default function GlobeWikipediaApp() {
         isDragging = true;
       }
     }
-    // Touch end
     function onTouchEnd(ev) {
-      if (!isDragging) {
-        onMouseMove(ev); // your click handler
-      }
+      if (isDragging) return;
+      const touch = ev.changedTouches?.[0];
+      if (!touch) return;
+      // Prevent the delayed synthetic click so we don't double-fire
+      ev.preventDefault();
+      onClick({ clientX: touch.clientX, clientY: touch.clientY });
     }
-    renderer.domElement.addEventListener('touchstart', onTouchStart, false);
-    renderer.domElement.addEventListener('touchmove', onTouchMove, false);
-    renderer.domElement.addEventListener('touchend', onTouchEnd, false);
+    const touchOpts = { passive: false };
+    renderer.domElement.addEventListener('touchstart', onTouchStart, touchOpts);
+    renderer.domElement.addEventListener('touchmove', onTouchMove, touchOpts);
+    renderer.domElement.addEventListener('touchend', onTouchEnd, touchOpts);
 
     window.addEventListener('resize', onResize);
     renderer.domElement.addEventListener('mousedown', onMouseDown);
@@ -597,12 +735,16 @@ export default function GlobeWikipediaApp() {
     animate();
 
     return () => {
+      cameraAnimId++;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mousemove', onMouseMoveDrag);
-      // renderer.domElement.addEventListener('click', onClick);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
+      renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
@@ -628,6 +770,13 @@ export default function GlobeWikipediaApp() {
           overflow: 'hidden',
         }}
       />
+
+      {status !== 'Ready' && (
+        <div className="loading-overlay" aria-live="polite">
+          <div className="loading-spinner" />
+          <div className="loading-text">{status}</div>
+        </div>
+      )}
 
       {hoverInfo && (
         <div
@@ -682,7 +831,12 @@ export default function GlobeWikipediaApp() {
       )}
 
       {/* Quiz UI */}
-      <QuizMenu countryMeta={countryMeta} stateRef={stateRef} ref={quizRef} />
+      <QuizMenu
+        countryMeta={countryMeta}
+        stateRef={stateRef}
+        ref={quizRef}
+        onQuizStart={() => setHoverInfo(null)}
+      />
 
       {/* Globe Controls */}
       {/* TODO: Find a better way to load high-res textures, then reenable this */}
