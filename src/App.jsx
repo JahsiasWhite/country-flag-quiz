@@ -756,7 +756,7 @@ export default function GlobeWikipediaApp() {
         width: '100%',
         height: '97%',
         position: 'relative',
-        fontFamily: 'sans-serif',
+        fontFamily: "'Outfit', sans-serif",
       }}
     >
       <div

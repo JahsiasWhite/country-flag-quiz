@@ -13,6 +13,9 @@ import {
   QUESTION_TYPES,
 } from './constants';
 import { getCountryFocus } from './geoUtils';
+import LobbyPanel from './multiplayer/LobbyPanel';
+import useLobby from './multiplayer/useLobby';
+import Select from './Select';
 import './QuizMenu.css';
 
 const HIGHLIGHT_FLASH_MS = 3000;
@@ -22,6 +25,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
   const [quizType, setQuizType] = useState('flag');
   const [quizLength, setQuizLength] = useState(10);
   const [ignoreIslands, setIgnoreIslands] = useState(false);
+  const [turnTimer, setTurnTimer] = useState(0); // seconds per question; 0 = off
 
   // Quiz State
   const [isOpen, setIsOpen] = useState(false);
@@ -29,6 +33,8 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
   const [quizQuestion, setQuizQuestion] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [waitingForPlayers, setWaitingForPlayers] = useState(false);
+  const [questionSecondsLeft, setQuestionSecondsLeft] = useState(null);
 
   // Scoring & Progress
   const [score, setScore] = useState(0);
@@ -44,10 +50,72 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
   const [feedbackType, setFeedbackType] = useState(''); // 'correct', 'incorrect', 'timeout'
   const [showFeedback, setShowFeedback] = useState(false);
 
+  // Multiplayer
+  const [playMode, setPlayMode] = useState('solo'); // solo | multi
+  const [isMultiplayer, setIsMultiplayer] = useState(false);
+  const [standings, setStandings] = useState([]);
+  const isMultiplayerRef = useRef(false);
+  const scoreRef = useRef(0);
+  const correctFirstTryRef = useRef(0);
+  const answeredRef = useRef(0);
+  const turnTimerRef = useRef(0);
+
+  const multiplayer = useLobby({
+    enabled: playMode === 'multi' || isMultiplayer,
+    onRoundStart: handleRoundStart,
+    onRoundFinish: handleRoundFinish,
+  });
+  const { lobby, playerId } = multiplayer;
+  const lobbyPlayers = lobby?.players ?? [];
+  const multiplayerRef = useRef(multiplayer);
+  multiplayerRef.current = multiplayer;
+
   // Refs
   const timerRef = useRef(null);
+  const questionTimerRef = useRef(null);
   const quizRef = useRef(null);
   const questionStartTimeRef = useRef(null);
+
+  useEffect(() => {
+    isMultiplayerRef.current = isMultiplayer;
+  }, [isMultiplayer]);
+
+  useEffect(() => {
+    turnTimerRef.current = turnTimer;
+  }, [turnTimer]);
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  useEffect(() => {
+    correctFirstTryRef.current = correctFirstTry;
+  }, [correctFirstTry]);
+
+  // The server owns the round: it decides when everyone is done and reopens the
+  // lobby on its own, so nothing here has to nudge it back to a joinable state.
+  function handleRoundFinish(payload) {
+    // Spectators watched this one — they just see the lobby's last-round list.
+    if (!isMultiplayerRef.current) return;
+    setStandings(payload?.standings || []);
+    setWaitingForPlayers(false);
+    setQuizMode(false);
+    setQuizQuestion(null);
+    quizRef.current = null;
+    clearQuestionTimer();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setShowSummary(true);
+  }
+
+  function publishScore(done = false) {
+    if (!isMultiplayerRef.current) return;
+    multiplayerRef.current.actions.reportProgress({
+      score: scoreRef.current,
+      correctFirstTry: correctFirstTryRef.current,
+      progress: answeredRef.current,
+      done,
+    });
+  }
 
   // Calculate metrics
   const accuracy =
@@ -102,6 +170,77 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     });
   }
 
+  function hydrateProblemSet(raw) {
+    return (raw || []).map((q, index) => ({
+      id: `${q.country}-${index}`,
+      country: q.country,
+      type: q.type,
+      flag: countryMeta[q.country]?.flag,
+      capital: countryMeta[q.country]?.capital || '—',
+      firstTry: true,
+      timeSpent: 0,
+      attempts: 0,
+      startTime: Date.now(),
+    }));
+  }
+
+  function beginWithProblems(problems, { multiplayer: isMulti = false, questionTimer, startIndex = 0 } = {}) {
+    onQuizStart?.();
+    setIsMultiplayer(isMulti);
+    isMultiplayerRef.current = isMulti;
+    setStandings([]);
+    setWaitingForPlayers(false);
+    if (questionTimer != null) {
+      setTurnTimer(questionTimer);
+      turnTimerRef.current = questionTimer;
+    }
+    setQuizMode(true);
+    setIsOpen(true);
+    setScore(0);
+    scoreRef.current = 0;
+    setTotalAttempts(0);
+    setCorrectFirstTry(0);
+    correctFirstTryRef.current = 0;
+    setStreak(0);
+    setTimeElapsed(0);
+    setMaxStreak(0);
+    quizRef.questionNumber = startIndex + 1;
+    setQuestionHistory([]);
+    setShowSummary(false);
+    clearAllCountryColors();
+
+    answeredRef.current = startIndex;
+    quizRef.problemSet = problems;
+    quizRef.problemIndex = startIndex;
+    startNewQuestion();
+  }
+
+  function handleRoundStart(payload) {
+    const problems = hydrateProblemSet(payload.problemSet);
+    beginWithProblems(problems, {
+      multiplayer: true,
+      questionTimer: Number(payload.settings?.turnTimer) || 0,
+      // A reconnect mid-round picks up where the server last saw us.
+      startIndex: Math.min(Number(payload.progress) || 0, problems.length - 1),
+    });
+
+    if (!payload.resumed) return;
+    const mine = payload.players?.find((p) => p.id === multiplayerRef.current.playerId);
+    if (!mine) return;
+    setScore(mine.score);
+    scoreRef.current = mine.score;
+    setCorrectFirstTry(mine.correctFirstTry);
+    correctFirstTryRef.current = mine.correctFirstTry;
+  }
+
+  function clearQuestionTimer() {
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+    setQuestionSecondsLeft(null);
+  }
+
   // Start new question
   function startNewQuestion() {
     if (!quizRef.problemSet) return;
@@ -114,6 +253,7 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     const nextQ = quizRef.problemSet[quizRef.problemIndex];
     setQuizQuestion(nextQ);
     quizRef.current = nextQ;
+    quizRef.timingOut = false;
     questionStartTimeRef.current = Date.now();
 
     // TODO: This is all funky. We should just increment the visual number by 1. (So it shows "Question 1/5" instead of "0/5")
@@ -124,13 +264,33 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     timerRef.current = setInterval(() => {
       setTimeElapsed((prev) => prev + 1);
     }, 1000);
+
+    clearQuestionTimer();
+    const limit = turnTimerRef.current;
+    if (limit > 0) {
+      setQuestionSecondsLeft(limit);
+      questionTimerRef.current = setInterval(() => {
+        setQuestionSecondsLeft((prev) => {
+          if (prev == null) return prev;
+          if (prev <= 1) {
+            clearInterval(questionTimerRef.current);
+            questionTimerRef.current = null;
+            queueMicrotask(() => handleTimeout());
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
   }
 
   // Handle timeout
   function handleTimeout() {
-    if (!quizRef.current) return;
+    if (!quizRef.current || quizRef.timingOut) return;
+    quizRef.timingOut = true;
 
     clearInterval(timerRef.current);
+    clearQuestionTimer();
     const question = quizRef.current;
     question.timeSpent = Math.floor(
       (Date.now() - questionStartTimeRef.current) / 1000
@@ -138,27 +298,24 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     question.attempts = 0;
 
     setFeedbackType('timeout');
-    setFeedback(`⏰ Time's up! The answer was ${question.country}`);
+    setFeedback(`Time's up! The answer was ${question.country}`);
     setShowFeedback(true);
 
-    // Flash the correct country red
     highlightCountry(question.country, BORDER_LINE_COLOR_WRONG, { flash: true });
-    findLocation();
+    if (!isMultiplayerRef.current) {
+      findLocation();
+    }
 
-    // Add to history
     setQuestionHistory((prev) => [...prev, { ...question, result: 'timeout' }]);
-
-    // Reset streak
     setStreak(0);
 
-    // setTimeout(() => {
-    // setShowFeedback(false);
+    answeredRef.current++;
     quizRef.questionNumber++;
     startNewQuestion();
-    // }, 2000);
+    publishScore(false);
     setTimeout(() => {
       setShowFeedback(false);
-    }, 5000);
+    }, 3000);
   }
 
   // Handle globe click
@@ -175,13 +332,22 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     if (clickedCountry === correctCountry) {
       // Correct answer
       clearInterval(timerRef.current);
+      clearQuestionTimer();
       question.timeSpent = Math.floor(
         (Date.now() - questionStartTimeRef.current) / 1000
       );
 
       const points = calculatePoints(question);
-      setScore((prev) => prev + points);
-      setCorrectFirstTry((prev) => prev + (question.firstTry ? 1 : 0));
+      setScore((prev) => {
+        const next = prev + points;
+        scoreRef.current = next;
+        return next;
+      });
+      setCorrectFirstTry((prev) => {
+        const next = prev + (question.firstTry ? 1 : 0);
+        correctFirstTryRef.current = next;
+        return next;
+      });
       setStreak((prev) => {
         const newStreak = prev + 1;
         setMaxStreak((prevMax) => Math.max(prevMax, newStreak));
@@ -206,8 +372,10 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
         { ...question, result: 'correct', points },
       ]);
 
+      answeredRef.current++;
       quizRef.questionNumber++;
       startNewQuestion();
+      publishScore(false);
       setTimeout(() => {
         setShowFeedback(false);
       }, 2000);
@@ -428,33 +596,26 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
 
   // Quiz control functions
   function startQuiz() {
-    onQuizStart?.();
-    setQuizMode(true);
-    setScore(0);
-    setTotalAttempts(0);
-    setCorrectFirstTry(0);
-    setStreak(0);
-    setTimeElapsed(0);
-    setMaxStreak(0);
-    quizRef.questionNumber = 1;
-    setQuestionHistory([]);
-    setShowSummary(false);
-    clearAllCountryColors();
+    beginWithProblems(generateProblemSet(), { multiplayer: false });
+  }
 
-    const problems = generateProblemSet();
-    quizRef.problemSet = problems; // store entire quiz
-    quizRef.problemIndex = 0;
-
-    startNewQuestion();
+  function backToLobby() {
+    setIsMultiplayer(false);
+    isMultiplayerRef.current = false;
+    setPlayMode('multi');
+    setIsOpen(true);
   }
 
   function nextQuestion() {
     setTotalAttempts((prev) => prev + 1); // TODO: Is question.attempts still used/needed??
 
     clearAllCountryColors();
+    clearQuestionTimer();
     setShowFeedback(false);
+    answeredRef.current++;
     quizRef.questionNumber++;
     startNewQuestion();
+    publishScore(false);
   }
 
   function endQuiz() {
@@ -469,7 +630,16 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    setShowSummary(true);
+    clearQuestionTimer();
+
+    if (isMultiplayerRef.current) {
+      // Report in, then let the server call the round: it finishes on its own
+      // once every connected player is done (or the round times out).
+      publishScore(true);
+      setWaitingForPlayers(true);
+    } else {
+      setShowSummary(true);
+    }
     quizRef.current = null;
   }
 
@@ -478,6 +648,9 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      if (questionTimerRef.current) {
+        clearInterval(questionTimerRef.current);
       }
       const anims = stateRef.current.highlightAnims;
       if (anims) {
@@ -586,89 +759,154 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
     <>
       <div
         className="quiz-container "
-        style={!isOpen ? { paddingBottom: '0px' } : {}}
       >
         {!quizMode ? (
           // Quiz Setup Screen
           <div>
-            <div
-              className="quiz-header"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <h2>World Quiz</h2>
-              <button
-                onClick={() => setShowTutorial(true)}
-                className="help-button"
-                title="How to play"
-              >
-                ❓
-              </button>
-              <span
-                onClick={() => setIsOpen(!isOpen)}
-                style={{
-                  cursor: 'pointer',
-                }}
-              >
-                {isOpen ? '▲' : '▼'}
-              </span>
+            <div className="quiz-header">
+              <div>
+                <p className="quiz-kicker">Country Flag Quiz</p>
+                <h2>World Quiz</h2>
+              </div>
+              <div className="quiz-header-actions">
+                <button
+                  onClick={() => setShowTutorial(true)}
+                  className="help-button"
+                  title="How to play"
+                  type="button"
+                >
+                  ?
+                </button>
+                <button
+                  type="button"
+                  className="collapse-button"
+                  onClick={() => setIsOpen(!isOpen)}
+                  aria-label={isOpen ? 'Collapse panel' : 'Expand panel'}
+                >
+                  {isOpen ? '▲' : '▼'}
+                </button>
+              </div>
             </div>
+
+            {!isOpen && (
+              <button
+                type="button"
+                className="start-button start-button-compact"
+                onClick={() => setIsOpen(true)}
+              >
+                Play
+              </button>
+            )}
 
             {isOpen && (
               <>
-                <div className="form-group">
-                  <label>Question Type:</label>
-                  <select
-                    value={quizType}
-                    onChange={(e) => setQuizType(e.target.value)}
-                    className="form-select"
+                <div className="mode-tabs" role="tablist">
+                  <button
+                    type="button"
+                    role="tab"
+                    className={playMode === 'solo' ? 'active' : ''}
+                    aria-selected={playMode === 'solo'}
+                    onClick={() => {
+                      if (playMode === 'multi') multiplayer.actions.leave();
+                      setPlayMode('solo');
+                    }}
                   >
-                    {QUESTION_TYPES.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Number of Questions:</label>
-                  <select
-                    value={quizLength}
-                    onChange={(e) =>
-                      setQuizLength(
-                        e.target.value === 'all'
-                          ? 'all'
-                          : Number(e.target.value)
-                      )
-                    }
-                    className="form-select"
+                    Solo
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={playMode === 'multi' ? 'active' : ''}
+                    aria-selected={playMode === 'multi'}
+                    onClick={() => setPlayMode('multi')}
                   >
-                    <option value={5}>5 Questions</option>
-                    <option value={10}>10 Questions</option>
-                    <option value={20}>20 Questions</option>
-                    <option value={50}>50 Questions</option>
-                    <option value="all">All Countries</option>
-                  </select>
+                    Multiplayer
+                  </button>
                 </div>
 
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={ignoreIslands}
-                      onChange={(e) => setIgnoreIslands(e.target.checked)}
-                    />
-                    Ignore Small Islands
-                  </label>
-                </div>
+                {playMode === 'solo' ? (
+                  <>
+                    <div className="form-group">
+                      <label>Question Type</label>
+                      <Select
+                        value={quizType}
+                        onChange={(e) => setQuizType(e.target.value)}
+                      >
+                        {QUESTION_TYPES.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
 
-                <button onClick={startQuiz} className="start-button">
-                  🚀 Start Quiz
-                </button>
+                    <div className="form-group">
+                      <label>Number of Questions</label>
+                      <Select
+                        value={quizLength}
+                        onChange={(e) =>
+                          setQuizLength(
+                            e.target.value === 'all'
+                              ? 'all'
+                              : Number(e.target.value)
+                          )
+                        }
+                      >
+                        <option value={5}>5 Questions</option>
+                        <option value={10}>10 Questions</option>
+                        <option value={20}>20 Questions</option>
+                        <option value={50}>50 Questions</option>
+                        <option value="all">All Countries</option>
+                      </Select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={ignoreIslands}
+                          onChange={(e) => setIgnoreIslands(e.target.checked)}
+                        />
+                        Ignore Small Islands
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={startQuiz}
+                      className="start-button"
+                    >
+                      Start Quiz
+                    </button>
+                  </>
+                ) : (
+                  <LobbyPanel
+                    quizType={quizType}
+                    quizLength={quizLength}
+                    ignoreIslands={ignoreIslands}
+                    turnTimer={turnTimer}
+                    generateProblemSet={generateProblemSet}
+                    lobby={multiplayer.lobby}
+                    me={multiplayer.me}
+                    isHost={multiplayer.isHost}
+                    isSpectating={multiplayer.isSpectating}
+                    status={multiplayer.status}
+                    error={multiplayer.error}
+                    notice={multiplayer.notice}
+                    playerName={multiplayer.playerName}
+                    actions={multiplayer.actions}
+                    onSettingsChange={(settings) => {
+                      if (settings.quizType != null)
+                        setQuizType(settings.quizType);
+                      if (settings.quizLength != null)
+                        setQuizLength(settings.quizLength);
+                      if (settings.ignoreIslands != null)
+                        setIgnoreIslands(settings.ignoreIslands);
+                      if (settings.turnTimer != null)
+                        setTurnTimer(Number(settings.turnTimer) || 0);
+                    }}
+                  />
+                )}
               </>
             )}
           </div>
@@ -689,6 +927,15 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
                   {Math.floor(timeElapsed / 60)}:
                   {(timeElapsed % 60).toString().padStart(2, '0')}
                 </div>
+                {questionSecondsLeft != null && (
+                  <div
+                    className={`turn-timer ${
+                      questionSecondsLeft <= 5 ? 'turn-timer-urgent' : ''
+                    }`}
+                  >
+                    {questionSecondsLeft}s left
+                  </div>
+                )}
                 <div className="streak-display">Streak: {streak}</div>
               </div>
             </div>
@@ -734,9 +981,11 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
 
             {/* Action Buttons */}
             <div className="action-buttons">
-              <button onClick={findLocation} className="find-location-button">
-                📍 Find Location
-              </button>
+              {!isMultiplayer && (
+                <button onClick={findLocation} className="find-location-button">
+                  📍 Find Location
+                </button>
+              )}
 
               <button onClick={nextQuestion} className="next-button">
                 ➡️ Next Question
@@ -756,9 +1005,76 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
                 Max Streak: <strong>{maxStreak}</strong>
               </div>
             </div>
+
+            {isMultiplayer && lobbyPlayers.length > 0 && (
+              <ul className="live-scores">
+                {[...lobbyPlayers]
+                  .filter((p) => !p.spectating)
+                  .sort((a, b) => b.score - a.score)
+                  .map((p, i) => (
+                    <li
+                      key={p.id}
+                      className={p.id === playerId ? 'is-self' : ''}
+                    >
+                      <span>
+                        {i + 1}. {p.name}
+                        {!p.connected && ' (offline)'}
+                      </span>
+                      <span>
+                        {p.score} pts ·{' '}
+                        {p.finished ? 'done' : `${p.progress}/${p.total}`}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </div>
         )}
       </div>
+
+      {waitingForPlayers && (
+        <div className="summary-overlay">
+          <div className="summary-modal waiting-modal">
+            <h2>Waiting for players</h2>
+            <p className="waiting-copy">
+              You&apos;re done. Placements are ranked by points once everyone
+              finishes — anyone who drops out is skipped automatically.
+            </p>
+            <div className="summary-score">
+              <div className="score-number">{score} points</div>
+            </div>
+            <ul className="live-scores waiting-scores">
+              {[...lobbyPlayers]
+                .filter((p) => !p.spectating)
+                .sort((a, b) => b.score - a.score)
+                .map((p) => (
+                  <li key={p.id} className={p.id === playerId ? 'is-self' : ''}>
+                    <span>{p.name}</span>
+                    <span>
+                      {p.score} pts ·{' '}
+                      {p.finished
+                        ? 'finished'
+                        : p.connected
+                          ? `${p.progress}/${p.total}`
+                          : 'offline'}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+            <div className="summary-actions">
+              {multiplayer.isHost && (
+                <button
+                  type="button"
+                  className="close-button"
+                  onClick={multiplayer.actions.endRound}
+                >
+                  End round now
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showFeedback && (
         <div className="feedback-overlay" aria-live="polite">
@@ -771,13 +1087,20 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
         <div className="summary-overlay">
           <div className="summary-modal">
             <div className="summary-emoji">
-              {score >= 80
-                ? '🏆'
-                : score >= 60
-                ? '🥈'
-                : score >= 40
-                ? '🥉'
-                : '📊'}
+              {(() => {
+                if (isMultiplayer && standings.length > 0) {
+                  const place =
+                    standings.find((p) => p.id === playerId)?.rank || 1;
+                  if (place === 1) return '🏆';
+                  if (place === 2) return '🥈';
+                  if (place === 3) return '🥉';
+                  return '📊';
+                }
+                if (accuracy >= 80) return '🏆';
+                if (accuracy >= 60) return '🥈';
+                if (accuracy >= 40) return '🥉';
+                return '📊';
+              })()}
             </div>
 
             <h2>Quiz Complete!</h2>
@@ -804,21 +1127,45 @@ const QuizMenu = forwardRef(({ countryMeta, stateRef, onQuizStart }, ref) => {
               </div>
             </div>
 
+            {isMultiplayer && standings.length > 0 && (
+              <div className="summary-leaderboard">
+                <h3>Final standings (by points)</h3>
+                <ol>
+                  {standings.map((p) => (
+                    <li key={p.id} className={p.id === playerId ? 'is-self' : ''}>
+                      <span>
+                        {p.rank}. {p.name}
+                        {!p.finished && ' (unfinished)'}
+                      </span>
+                      <span>{p.score} pts</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
             <div className="summary-actions">
               <button
                 onClick={() => {
                   setShowSummary(false);
-                  startQuiz();
+                  if (isMultiplayer) {
+                    backToLobby();
+                  } else {
+                    startQuiz();
+                  }
                 }}
                 className="try-again-button"
               >
-                🔄 Try Again
+                {isMultiplayer ? 'Back to lobby' : 'Try Again'}
               </button>
               <button
-                onClick={() => setShowSummary(false)}
+                onClick={() => {
+                  setShowSummary(false);
+                  if (isMultiplayer) backToLobby();
+                }}
                 className="close-button"
               >
-                ✖️ Close
+                Close
               </button>
             </div>
           </div>
